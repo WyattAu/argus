@@ -1,0 +1,55 @@
+---
+import Dashboard from "../components/Dashboard";
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>argus — intelligence platform</title>
+    <style>
+      /* M0 tokens — swap for theme-kit/pediment tokens in M1. */
+      :root {
+        --bg: #0b0e14;
+        --panel: #11151f;
+        --border: #1e2530;
+        --text: #d7dde8;
+        --muted: #7c8698;
+        --accent: #4cc38a;
+        --stale: #e0af68;
+        --danger: #e5484d;
+        font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 1.15rem;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+      }
+      header .sub { color: var(--muted); font-size: 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>argus</h1>
+      <span class="sub">M0 skeleton · bus → ws → panels</span>
+    </header>
+    <main>
+      <Dashboard client:only="solid" />
+    </main>
+  </body>
+</html>

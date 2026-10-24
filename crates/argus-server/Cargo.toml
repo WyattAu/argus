@@ -1,0 +1,34 @@
+[package]
+name = "argus-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "argus intelligence platform server (M0 skeleton)"
+
+[[bin]]
+name = "argus"
+path = "src/main.rs"
+
+[dependencies]
+feedkit.workspace = true
+eventbus-kit.workspace = true
+ws-kit.workspace = true
+healthkit.workspace = true
+config-kit.workspace = true
+telemetry-init.workspace = true
+api-types.workspace = true
+http-error.workspace = true
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+http.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "feedkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Normalized open-source feed adapters for the argus intelligence platform"
+
+[dependencies]
+breaker.workspace = true
+fetch-kit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,7 @@
+/target
+Cargo.lock.bak
+.env
+*.local
+node_modules/
+dist/
+.astro/

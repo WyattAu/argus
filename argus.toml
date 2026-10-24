@@ -1,0 +1,18 @@
+# argus — M0 skeleton configuration.
+# Layers: this file -> ARGUS_ env overrides (config-kit).
+
+[server]
+host = "127.0.0.1"
+port = 8420
+# Empty list allows all origins (fine for localhost M0). Set real origins before
+# exposing beyond loopback — ws-kit enforces exact-match CSWSH protection.
+ws_allowed_origins = []
+
+[feeds]
+sim_enabled = true
+sim_interval_ms = 500
+usgs_enabled = true
+usgs_interval_secs = 60
+
+[telemetry]
+level = "info"
