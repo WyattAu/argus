@@ -8,7 +8,7 @@ import Dashboard from "../components/Dashboard";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>argus — intelligence platform</title>
     <style>
-      /* M0 tokens — swap for theme-kit/pediment tokens in M1. */
+      /* M1 tokens — swap for theme-kit/pediment tokens in M2. */
       :root {
         --bg: #0b0e14;
         --panel: #11151f;
@@ -41,12 +41,88 @@ import Dashboard from "../components/Dashboard";
         color: var(--accent);
       }
       header .sub { color: var(--muted); font-size: 0.8rem; }
+      main { padding: 1rem 1.25rem; }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        align-items: start;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        min-width: 0;
+      }
+      .panel.span2 { grid-column: span 2; }
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.6rem;
+      }
+      .panel-head h2 {
+        margin: 0;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .muted { color: var(--muted); font-size: 0.72rem; }
+      .badge { font-size: 0.72rem; }
+      .badge.live { color: var(--accent); }
+      .badge.stale { color: var(--stale); }
+      canvas { width: 100%; height: auto; }
+      .quotes { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; }
+      .quote { font-size: 0.8rem; color: var(--text); }
+      .feed {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 420px;
+        overflow-y: auto;
+      }
+      .feed li {
+        padding: 0.45rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.78rem;
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .feed .title { flex: 1; min-width: 12rem; }
+      .feed a { color: var(--accent); text-decoration: none; }
+      .feed .license {
+        width: 100%;
+        color: var(--muted);
+        font-size: 0.65rem;
+      }
+      .chip {
+        color: #0b0e14;
+        border-radius: 4px;
+        padding: 0.05rem 0.4rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .map { height: 420px; border-radius: 6px; overflow: hidden; }
+      .argus-marker {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid #0b0e14;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
     <header>
       <h1>argus</h1>
-      <span class="sub">M0 skeleton · bus → ws → panels</span>
+      <span class="sub">M1 · world intel: usgs / eonet / swpc / nvd / news (+firms w/ key)</span>
     </header>
     <main>
       <Dashboard client:only="solid" />

@@ -15,6 +15,21 @@ const FEED_URL: &str = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summar
 const SEEN_CAPACITY: usize = 10_000;
 const USGS_LICENSE: &str = "USGS public domain (attribution requested)";
 
+/// Breaker-protected HTTP client shared by the public-feed adapters.
+#[must_use]
+pub fn default_client() -> fetch_kit::Client {
+    let breaker_cfg = breaker::CircuitBreakerConfigBuilder::default()
+        .failure_rate_threshold(0.5)
+        .wait_duration(Duration::from_secs(10))
+        .build();
+    fetch_kit::Client::builder()
+        .user_agent("argus-feedkit/0.1")
+        .timeout(Duration::from_secs(10))
+        .retries(2)
+        .with_breaker(breaker::CircuitBreaker::new(breaker_cfg))
+        .build()
+}
+
 /// Polls the USGS `all_hour` earthquake feed and emits new quakes as
 /// [`Observation`]s. Deduplicates by USGS event id across polls.
 pub struct UsgsSource {
@@ -26,18 +41,8 @@ impl UsgsSource {
     /// Creates an adapter with a breaker-protected HTTP client.
     #[must_use]
     pub fn new() -> Self {
-        let breaker_cfg = breaker::CircuitBreakerConfigBuilder::default()
-            .failure_rate_threshold(0.5)
-            .wait_duration(Duration::from_secs(10))
-            .build();
-        let client = fetch_kit::Client::builder()
-            .user_agent("argus-feedkit/0.1")
-            .timeout(Duration::from_secs(10))
-            .retries(2)
-            .with_breaker(breaker::CircuitBreaker::new(breaker_cfg))
-            .build();
         Self {
-            client,
+            client: default_client(),
             seen: HashSet::new(),
         }
     }

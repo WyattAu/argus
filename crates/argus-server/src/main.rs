@@ -1,5 +1,5 @@
-//! argus — all-purpose intelligence platform. M0 skeleton: bus-backed feeds,
-//! REST + WebSocket surface, estate-crate plumbing end to end.
+//! argus — all-purpose intelligence platform. M1: world-intel feeds
+//! (USGS, EONET, SWPC, NVD, news RSS, FIRMS), bus-backed REST + WS surface.
 
 mod api;
 mod config;
@@ -14,9 +14,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
+use feedkit::{EonetSource, FirmsSource, NewsSource, NvdSource, SimMarket, SwpcSource, UsgsSource};
 use healthkit::HealthStatus;
-use state::{AppState, SourceId};
 use tokio::signal::unix::{signal, SignalKind};
+
+use crate::config::ArgusConfig;
+use crate::state::AppState;
 
 /// CLI arguments.
 #[derive(Debug, Parser)]
@@ -76,54 +79,120 @@ async fn serve(cfg: config::ArgusConfig) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-fn spawn_feeds(state: &Arc<AppState>) {
-    let feeds = &state.cfg.feeds;
-    if feeds.sim_enabled {
-        let sim_interval = Duration::from_millis(feeds.sim_interval_ms.max(50));
-        tokio::spawn(feeds::run_source(
-            Arc::clone(state),
-            feedkit::SimMarket::new(),
-            sim_interval,
-        ));
+/// One enabled feed: name, poll interval, and the staleness budget that
+/// marks its health check `Degraded`.
+struct FeedSpec {
+    name: &'static str,
+    interval: Duration,
+    budget: Duration,
+}
+
+fn enabled_feeds(cfg: &ArgusConfig) -> Vec<FeedSpec> {
+    let f = &cfg.feeds;
+    let mut specs = Vec::new();
+    if f.sim_enabled {
+        specs.push(FeedSpec {
+            name: "sim",
+            interval: Duration::from_millis(f.sim_interval_ms.max(50)),
+            budget: Duration::from_millis((f.sim_interval_ms.max(50)).saturating_mul(5)),
+        });
     }
-    if feeds.usgs_enabled {
-        let usgs_interval = Duration::from_secs(feeds.usgs_interval_secs.max(5));
-        tokio::spawn(feeds::run_source(
-            Arc::clone(state),
-            feedkit::UsgsSource::new(),
-            usgs_interval,
-        ));
+    specs.extend(timed_spec("usgs", f.usgs_enabled, f.usgs_interval_secs, 3));
+    specs.extend(timed_spec("eonet", f.eonet_enabled, f.eonet_interval_secs, 3));
+    specs.extend(timed_spec("swpc", f.swpc_enabled, f.swpc_interval_secs, 3));
+    specs.extend(timed_spec("nvd", f.nvd_enabled, f.nvd_interval_secs, 3));
+    specs.extend(timed_spec("news", f.news_enabled, f.news_interval_secs, 3));
+    specs.extend(timed_spec("firms", f.firms_enabled, f.firms_interval_secs, 3));
+    specs
+}
+
+/// Timed-feed spec factory: `Degraded` budget is `multiplier * interval`
+/// with a 45 s floor.
+fn timed_spec(
+    name: &'static str,
+    enabled: bool,
+    secs: u64,
+    multiplier: u64,
+) -> Option<FeedSpec> {
+    if !enabled {
+        return None;
+    }
+    let secs = secs.max(1);
+    Some(FeedSpec {
+        name,
+        interval: Duration::from_secs(secs),
+        budget: Duration::from_secs(secs.saturating_mul(multiplier).max(45)),
+    })
+}
+
+fn spawn_feeds(state: &Arc<AppState>) {
+    let f = &state.cfg.feeds;
+    for spec in enabled_feeds(&state.cfg) {
+        match spec.name {
+            "sim" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                SimMarket::new(),
+                spec.interval,
+            )),
+            "usgs" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                UsgsSource::new(),
+                spec.interval,
+            )),
+            "eonet" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                EonetSource::new(),
+                spec.interval,
+            )),
+            "swpc" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                SwpcSource::new(),
+                spec.interval,
+            )),
+            "nvd" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                NvdSource::new(),
+                spec.interval,
+            )),
+            "news" => tokio::spawn(feeds::run_source(
+                Arc::clone(state),
+                NewsSource::bbc_world(),
+                spec.interval,
+            )),
+            "firms" => {
+                let Some(source) = FirmsSource::new(&f.firms_map_key) else {
+                    tracing::warn!("firms feed enabled but firms_map_key is empty; skipping");
+                    continue;
+                };
+                tokio::spawn(feeds::run_source(Arc::clone(state), source, spec.interval))
+            }
+            other => {
+                tracing::warn!(feed = other, "unknown feed spec; skipping");
+                continue;
+            }
+        };
     }
 }
 
 fn register_health_checks(state: &Arc<AppState>) {
-    let freshness = |st: &Arc<AppState>, source: SourceId, budget_ms: i64| {
-        let st = Arc::clone(st);
-        move || {
-            let st = Arc::clone(&st);
-            async move {
-                let age = st.ms_since_ok(source, feedkit::now_ms());
-                if age < budget_ms {
-                    Ok(HealthStatus::Healthy)
-                } else {
-                    Ok(HealthStatus::Degraded)
+    for spec in enabled_feeds(&state.cfg) {
+        let st = Arc::clone(state);
+        let name = spec.name;
+        let budget_ms = i64::try_from(spec.budget.as_millis()).unwrap_or(i64::MAX);
+        state
+            .health
+            .add_check(format!("feed-{name}"), move || {
+                let st = Arc::clone(&st);
+                async move {
+                    let age = st.ms_since_ok(name, feedkit::now_ms());
+                    if age < budget_ms {
+                        Ok(HealthStatus::Healthy)
+                    } else {
+                        Ok(HealthStatus::Degraded)
+                    }
                 }
-            }
-        }
-    };
-
-    let sim_budget = i64::try_from(state.cfg.feeds.sim_interval_ms.max(50) * 5)
-        .unwrap_or(i64::MAX);
-    state
-        .health
-        .add_check("feed-sim", freshness(state, SourceId::Sim, sim_budget));
-
-    let usgs_budget =
-        i64::try_from(state.cfg.feeds.usgs_interval_secs.max(5).saturating_mul(3).saturating_mul(1000))
-            .unwrap_or(i64::MAX);
-    state
-        .health
-        .add_check("feed-usgs", freshness(state, SourceId::Usgs, usgs_budget));
+            });
+    }
 }
 
 /// Resolves on ctrl-C or SIGTERM.

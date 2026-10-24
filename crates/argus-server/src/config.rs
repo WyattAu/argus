@@ -34,6 +34,9 @@ pub struct ServerConfig {
 }
 
 /// Feed polling settings.
+// Seven toggles mirror the flat `[feeds]` TOML block; grouping them would
+// churn the config file users already have for no real gain.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct FeedsConfig {
     /// Synthetic market feed enabled.
@@ -48,6 +51,39 @@ pub struct FeedsConfig {
     /// USGS poll interval, seconds.
     #[serde(default = "default_usgs_interval_secs")]
     pub usgs_interval_secs: u64,
+    /// NASA EONET natural events enabled.
+    #[serde(default = "default_true")]
+    pub eonet_enabled: bool,
+    /// EONET poll interval, seconds.
+    #[serde(default = "default_eonet_interval_secs")]
+    pub eonet_interval_secs: u64,
+    /// NOAA SWPC space-weather alerts enabled.
+    #[serde(default = "default_true")]
+    pub swpc_enabled: bool,
+    /// SWPC poll interval, seconds.
+    #[serde(default = "default_swpc_interval_secs")]
+    pub swpc_interval_secs: u64,
+    /// NVD recent CVEs enabled.
+    #[serde(default = "default_true")]
+    pub nvd_enabled: bool,
+    /// NVD poll interval, seconds (keyless tier: keep >= 60).
+    #[serde(default = "default_nvd_interval_secs")]
+    pub nvd_interval_secs: u64,
+    /// Broadcaster news RSS enabled.
+    #[serde(default = "default_true")]
+    pub news_enabled: bool,
+    /// News poll interval, seconds.
+    #[serde(default = "default_news_interval_secs")]
+    pub news_interval_secs: u64,
+    /// NASA FIRMS hotspots enabled (needs a `MAP_KEY`).
+    #[serde(default)]
+    pub firms_enabled: bool,
+    /// NASA FIRMS `MAP_KEY` (free account); or set `ARGUS_FEEDS_FIRMS_MAP_KEY`.
+    #[serde(default)]
+    pub firms_map_key: String,
+    /// FIRMS poll interval, seconds.
+    #[serde(default = "default_firms_interval_secs")]
+    pub firms_interval_secs: u64,
 }
 
 /// Telemetry settings.
@@ -75,6 +111,17 @@ impl Default for FeedsConfig {
             sim_interval_ms: default_sim_interval_ms(),
             usgs_enabled: true,
             usgs_interval_secs: default_usgs_interval_secs(),
+            eonet_enabled: true,
+            eonet_interval_secs: default_eonet_interval_secs(),
+            swpc_enabled: true,
+            swpc_interval_secs: default_swpc_interval_secs(),
+            nvd_enabled: true,
+            nvd_interval_secs: default_nvd_interval_secs(),
+            news_enabled: true,
+            news_interval_secs: default_news_interval_secs(),
+            firms_enabled: false,
+            firms_map_key: String::new(),
+            firms_interval_secs: default_firms_interval_secs(),
         }
     }
 }
@@ -101,6 +148,26 @@ fn default_sim_interval_ms() -> u64 {
 
 fn default_usgs_interval_secs() -> u64 {
     60
+}
+
+fn default_eonet_interval_secs() -> u64 {
+    300
+}
+
+fn default_swpc_interval_secs() -> u64 {
+    120
+}
+
+fn default_nvd_interval_secs() -> u64 {
+    120
+}
+
+fn default_news_interval_secs() -> u64 {
+    300
+}
+
+fn default_firms_interval_secs() -> u64 {
+    300
 }
 
 fn default_level() -> String {

@@ -4,7 +4,9 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M0 skeleton** — bus-backed feeds, REST + WebSocket surface, Astro+Solid shell.
+**Status: M1 world-intel** — seven live feeds (USGS quakes, NASA EONET, NOAA SWPC,
+NVD CVEs, BBC World RSS, FIRMS w/ MAP_KEY, sim market), REST + WebSocket surface,
+Astro+Solid shell with kind-colored world map (MapLibre demotiles).
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -38,10 +40,15 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 
 Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>` — wildcards `*`/`**`.
 
+FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
+`ARGUS_FEEDS_FIRMS_MAP_KEY`) to a free NASA MAP_KEY, then `firms_enabled = true`.
+
 ## Dogfooded so far
 
 config-kit · telemetry-init · healthkit · eventbus-kit · ws-kit · api-types ·
-http-error · fetch-kit (+breaker) · breaker · feedkit (new)
+http-error · fetch-kit (+breaker) · breaker · feedkit (new; 7 adapters)
+
+Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Dogfood notes (M0 findings)
 
@@ -65,6 +72,12 @@ http-error · fetch-kit (+breaker) · breaker · feedkit (new)
    M1+ needs `wasm-pack` output (or an npm package) to swap in for real.
 7. `eventbus-kit` `subscribe_sync` closures receive `Arc<EventEnvelope<T>>` while
    `BroadcastHub::broadcast` takes owned `T` — clone at the bridge (fine, documented).
+8. `maplibre-gl`'s ESM build has **no default export** — import
+   `{ Map, Marker, Popup, NavigationControl }` named, or rollup fails the build.
+9. NVD keyless tier is ~5 req/30 s — keep `nvd_interval_secs >= 60` (default 120).
+   FIRMS area API needs a MAP_KEY; adapter is `Option`-gated on it.
+10. EONET categories map: wildfires→`Fire`, severeStorms→`Weather`,
+    volcanoes→`Volcano`, everything else→`News`.
 
 ## Estate gates
 
@@ -75,7 +88,7 @@ http-error · fetch-kit (+breaker) · breaker · feedkit (new)
 
 ## Roadmap
 
-M1 world-intel feeds (FIRMS, EONET, SWPC, NVD, OpenSanctions, RSS + MapLibre panel) →
+M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →

@@ -1,4 +1,4 @@
-# argus — M0 skeleton configuration.
+# argus — M1 configuration.
 # Layers: this file -> ARGUS_ env overrides (config-kit).
 
 [server]
@@ -13,6 +13,18 @@ sim_enabled = true
 sim_interval_ms = 500
 usgs_enabled = true
 usgs_interval_secs = 60
+eonet_enabled = true
+eonet_interval_secs = 300
+swpc_enabled = true
+swpc_interval_secs = 120
+nvd_enabled = true
+nvd_interval_secs = 120
+news_enabled = true
+news_interval_secs = 300
+# FIRMS needs a free MAP_KEY: https://firms.modaps.eosdis.nasa.gov/api/area/
+firms_enabled = false
+firms_map_key = ""      # or ARGUS_FEEDS_FIRMS_MAP_KEY
+firms_interval_secs = 300
 
 [telemetry]
 level = "info"

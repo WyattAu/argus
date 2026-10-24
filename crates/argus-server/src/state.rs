@@ -1,7 +1,6 @@
 //! Shared application state: bus, hub, caches, health signals.
 
-use std::collections::{BTreeMap, VecDeque};
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use typed_eventbus::{EventBus, EventEnvelope};
@@ -23,19 +22,10 @@ pub struct AppState {
     pub hub: Arc<BroadcastHub<EventEnvelope<Event>>>,
     /// Health registry backing `/readyz`.
     pub health: healthkit::HealthRegistry,
-    last_sim_ok_ms: AtomicI64,
-    last_usgs_ok_ms: AtomicI64,
+    /// Last successful poll per source name, epoch ms.
+    last_ok_ms: RwLock<HashMap<String, i64>>,
     observations: RwLock<VecDeque<Observation>>,
     quotes: RwLock<BTreeMap<String, Quote>>,
-}
-
-/// Index of a source for liveness tracking.
-#[derive(Debug, Clone, Copy)]
-pub enum SourceId {
-    /// Synthetic market feed.
-    Sim,
-    /// USGS quake feed.
-    Usgs,
 }
 
 impl AppState {
@@ -47,29 +37,22 @@ impl AppState {
             bus: EventBus::new(),
             hub: Arc::new(BroadcastHub::new(1024)),
             health: healthkit::HealthRegistry::new(),
-            last_sim_ok_ms: AtomicI64::new(0),
-            last_usgs_ok_ms: AtomicI64::new(0),
+            last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),
             quotes: RwLock::new(BTreeMap::new()),
         }
     }
 
     /// Records a successful poll for `source`.
-    pub fn record_ok(&self, source: SourceId, at_ms: i64) {
-        match source {
-            SourceId::Sim => self.last_sim_ok_ms.store(at_ms, Ordering::Relaxed),
-            SourceId::Usgs => self.last_usgs_ok_ms.store(at_ms, Ordering::Relaxed),
-        }
+    pub fn record_ok(&self, source: &str, at_ms: i64) {
+        write_tolerant(&self.last_ok_ms).insert(source.to_string(), at_ms);
     }
 
     /// Age in ms since the source's last successful poll; very large when
     /// the source has never polled successfully.
     #[must_use]
-    pub fn ms_since_ok(&self, source: SourceId, now_ms: i64) -> i64 {
-        let last = match source {
-            SourceId::Sim => self.last_sim_ok_ms.load(Ordering::Relaxed),
-            SourceId::Usgs => self.last_usgs_ok_ms.load(Ordering::Relaxed),
-        };
+    pub fn ms_since_ok(&self, source: &str, now_ms: i64) -> i64 {
+        let last = *read_tolerant(&self.last_ok_ms).get(source).unwrap_or(&0);
         if last == 0 {
             return i64::MAX / 2;
         }

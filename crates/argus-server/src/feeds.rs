@@ -7,8 +7,8 @@ use typed_eventbus::{EventBus, EventEnvelope};
 use tokio::time::MissedTickBehavior;
 use ws_kit::hub::BroadcastHub;
 
-use crate::state::{AppState, SourceId};
-use feedkit::{Event, ObservationKind, Source, SourceBatch};
+use crate::state::AppState;
+use feedkit::{kind_slug, Event, Source, SourceBatch};
 
 /// Runs one source on a fixed interval, publishing every batch onto the bus.
 pub async fn run_source<S: Source>(state: Arc<AppState>, mut source: S, interval: Duration) {
@@ -18,7 +18,7 @@ pub async fn run_source<S: Source>(state: Arc<AppState>, mut source: S, interval
         tick.tick().await;
         match source.poll().await {
             Ok(batch) => {
-                state.record_ok(source_id(source.name()), feedkit::now_ms());
+                state.record_ok(source.name(), feedkit::now_ms());
                 publish_batch(&state.bus, source.name(), batch).await;
             }
             Err(error) => {
@@ -56,14 +56,6 @@ pub async fn bridge_bus(state: Arc<AppState>) {
         .await;
 }
 
-fn source_id(name: &str) -> SourceId {
-    if name == "usgs" {
-        SourceId::Usgs
-    } else {
-        SourceId::Sim
-    }
-}
-
 async fn publish_batch(bus: &EventBus<Event>, source: &str, batch: SourceBatch) {
     match batch {
         SourceBatch::Observations(items) => {
@@ -87,13 +79,3 @@ async fn publish(bus: &EventBus<Event>, topic: &str, event: Event) {
     }
 }
 
-fn kind_slug(kind: ObservationKind) -> &'static str {
-    match kind {
-        ObservationKind::Quake => "quake",
-        ObservationKind::Fire => "fire",
-        ObservationKind::Weather => "weather",
-        ObservationKind::Cve => "cve",
-        ObservationKind::News => "news",
-        ObservationKind::Sim => "sim",
-    }
-}

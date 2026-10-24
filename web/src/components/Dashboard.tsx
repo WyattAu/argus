@@ -1,27 +1,12 @@
-// M0 dashboard island: markets chart + world-intel feed + LIVE/STALE badge.
-// Panel data flows over ONE websocket mirroring the server event bus.
+// M1 dashboard island: markets chart + world-intel feed + map, one WS feed.
 // plychart replaces the canvas stub once it ships a wasm/npm artifact.
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-
-type Quote = { symbol: string; price: number; ts_ms: number };
-type Observation = {
-  id: string;
-  source: string;
-  kind: string;
-  title: string;
-  place: string | null;
-  lat: number | null;
-  lon: number | null;
-  magnitude: number | null;
-  url: string | null;
-  occurred_at_ms: number;
-  fetched_at_ms: number;
-  license: string;
-};
-type Envelope = { id: string; topic: string; timestamp: number; payload: { type: string } };
+import MapPanel from "./MapPanel";
+import { KIND_COLOR, kindLabel, type Observation, type Quote } from "./kinds";
 
 const HISTORY_POINTS = 120;
 const STALE_AFTER_MS = 6000;
+const FEED_LIMIT = 30;
 
 export default function Dashboard() {
   const [stale, setStale] = createSignal(true);
@@ -33,26 +18,22 @@ export default function Dashboard() {
   const [chartTick, setChartTick] = createSignal(0);
   let canvas: HTMLCanvasElement | undefined;
 
-  const noteMessage = () => {
-    setLastMsgAt(Date.now());
-    setStale(false);
-  };
-
   onMount(async () => {
-    const seed = await fetch("/api/v1/observations?limit=25").then((r) => r.json());
+    const seed = await fetch(`/api/v1/observations?limit=${FEED_LIMIT}`).then((r) => r.json());
     if (seed?.data) setObservations(seed.data);
 
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/api/v1/stream`);
     ws.onmessage = (e) => {
-      noteMessage();
-      let envelope: Envelope;
+      setLastMsgAt(Date.now());
+      setStale(false);
+      let envelope: { topic: string; payload: unknown };
       try {
         envelope = JSON.parse(e.data);
       } catch {
         return;
       }
-      const payload = envelope.payload as unknown;
+      const payload = envelope.payload;
       if (envelope.topic.startsWith("md.") && isQuote(payload)) {
         setQuotes((prev) => ({ ...prev, [payload.symbol]: payload }));
         pushPrice(payload.symbol, payload.price);
@@ -60,7 +41,7 @@ export default function Dashboard() {
       } else if (envelope.topic.startsWith("intel.") && isObservation(payload)) {
         setObservations((prev) => {
           if (prev.some((o) => o.id === payload.id)) return prev;
-          return [payload, ...prev].slice(0, 25);
+          return [payload, ...prev].slice(0, FEED_LIMIT);
         });
       }
     };
@@ -94,14 +75,14 @@ export default function Dashboard() {
 
   return (
     <div class="grid">
-      <section class="panel span2">
+      <section class="panel">
         <div class="panel-head">
           <h2>markets · md.sim.aapl</h2>
           <span class={`badge ${stale() ? "stale" : "live"}`}>
             {stale() ? "● DATA STALE" : "● LIVE"}
           </span>
         </div>
-        <canvas ref={canvas} width="640" height="180" />
+        <canvas ref={canvas} width="640" height="170" />
         <div class="quotes">
           <For each={Object.values(quotes())}>
             {(q) => (
@@ -113,27 +94,32 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section class="panel span2">
+      <section class="panel">
         <div class="panel-head">
-          <h2>world intel · intel.usgs.quake</h2>
-          <span class="muted">usgs all_hour · attribution in payload</span>
+          <h2>world intel</h2>
+          <span class="muted">newest first · attribution per item</span>
         </div>
         <ul class="feed">
           <For each={observations()}>
             {(o) => (
               <li>
-                <span class="mag">{o.magnitude != null ? `M ${o.magnitude.toFixed(1)}` : "—"}</span>
+                <span class="chip" style={{ background: KIND_COLOR[o.kind] ?? "#7c8698" }}>
+                  {kindLabel(o)}
+                </span>
                 <span class="title">{o.title}</span>
                 <Show when={o.url}>
                   <a href={o.url ?? "#"} target="_blank" rel="noreferrer">
                     source ↗
                   </a>
                 </Show>
+                <div class="license">{o.license}</div>
               </li>
             )}
           </For>
         </ul>
       </section>
+
+      <MapPanel observations={observations} />
     </div>
   );
 }

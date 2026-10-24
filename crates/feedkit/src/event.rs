@@ -67,14 +67,53 @@ pub enum Event {
 pub enum ObservationKind {
     /// Seismic event.
     Quake,
-    /// Wildfire hotspot.
+    /// Wildfire hotspot / active fire.
     Fire,
-    /// Severe weather / space weather.
+    /// Severe weather or space weather.
     Weather,
+    /// Volcanic activity.
+    Volcano,
     /// Published vulnerability.
     Cve,
     /// News item.
     News,
     /// Synthetic/demo event.
     Sim,
+}
+
+/// Human-facing slug for a category.
+#[must_use]
+pub fn kind_slug(kind: ObservationKind) -> &'static str {
+    match kind {
+        ObservationKind::Quake => "quake",
+        ObservationKind::Fire => "fire",
+        ObservationKind::Weather => "weather",
+        ObservationKind::Volcano => "volcano",
+        ObservationKind::Cve => "cve",
+        ObservationKind::News => "news",
+        ObservationKind::Sim => "sim",
+    }
+}
+
+/// Parses an RFC 3339 timestamp (most feeds) to epoch milliseconds.
+#[must_use]
+pub fn rfc3339_to_ms(value: &str) -> Option<i64> {
+    let dt = time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+        .ok()?;
+    epoch_ms(dt)
+}
+
+/// Parses an RFC 2822 timestamp (RSS `pubDate`) to epoch milliseconds.
+#[must_use]
+pub fn rfc2822_to_ms(value: &str) -> Option<i64> {
+    let dt = time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc2822)
+        .ok()?;
+    epoch_ms(dt)
+}
+
+fn epoch_ms(dt: time::OffsetDateTime) -> Option<i64> {
+    let secs = dt.unix_timestamp();
+    let nanos = i64::from(dt.nanosecond());
+    secs.checked_mul(1000)
+        .and_then(|ms| ms.checked_add(nanos / 1_000_000))
 }
