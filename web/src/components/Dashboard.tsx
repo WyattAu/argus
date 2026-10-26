@@ -1,7 +1,9 @@
-// M1 dashboard island: markets chart + world-intel feed + map, one WS feed.
-// plychart replaces the canvas stub once it ships a wasm/npm artifact.
+// M2 dashboard island: sim chart + candles + world intel + map + palette.
+// One WS feed; plychart replaces the canvas stubs once it ships wasm/npm.
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import Candles from "./Candles";
 import MapPanel from "./MapPanel";
+import Palette from "./Palette";
 import { KIND_COLOR, kindLabel, type Observation, type Quote } from "./kinds";
 
 const HISTORY_POINTS = 120;
@@ -13,7 +15,9 @@ export default function Dashboard() {
   const [lastMsgAt, setLastMsgAt] = createSignal(0);
   const [quotes, setQuotes] = createSignal<Record<string, Quote>>({});
   const [observations, setObservations] = createSignal<Observation[]>([]);
-  // symbol -> rolling price history (AAPL is the charted series in M0).
+  const [chartSymbol, setChartSymbol] = createSignal("BTCUSDT");
+  const [feedFilter, setFeedFilter] = createSignal("all");
+  // symbol -> rolling price history (AAPL is the line-charted sim series).
   const history = new Map<string, number[]>();
   const [chartTick, setChartTick] = createSignal(0);
   let canvas: HTMLCanvasElement | undefined;
@@ -61,7 +65,7 @@ export default function Dashboard() {
     history.set(symbol, series);
   };
 
-  // Redraw the chart whenever new quotes land.
+  // Redraw the sim line chart whenever new sim quotes land.
   createEffect(() => {
     chartTick();
     drawChart(canvas, history.get("AAPL") ?? []);
@@ -73,8 +77,22 @@ export default function Dashboard() {
   }, 2000);
   onCleanup(() => clearInterval(watchdog));
 
+  const lastPrice = () => {
+    const out: Record<string, number> = {};
+    for (const [symbol, quote] of Object.entries(quotes())) out[symbol] = quote.price;
+    return out;
+  };
+
+  const filtered = () => {
+    const all = observations();
+    const kind = feedFilter();
+    return kind === "all" ? all : all.filter((o) => o.kind === kind);
+  };
+
   return (
     <div class="grid">
+      <Palette onSymbol={setChartSymbol} onFilter={setFeedFilter} />
+
       <section class="panel">
         <div class="panel-head">
           <h2>markets · md.sim.aapl</h2>
@@ -94,13 +112,15 @@ export default function Dashboard() {
         </div>
       </section>
 
+      <Candles symbol={chartSymbol} onSymbol={setChartSymbol} lastPrice={lastPrice} />
+
       <section class="panel">
         <div class="panel-head">
-          <h2>world intel</h2>
+          <h2>world intel{feedFilter() !== "all" ? ` · ${feedFilter()}` : ""}</h2>
           <span class="muted">newest first · attribution per item</span>
         </div>
         <ul class="feed">
-          <For each={observations()}>
+          <For each={filtered()}>
             {(o) => (
               <li>
                 <span class="chip" style={{ background: KIND_COLOR[o.kind] ?? "#7c8698" }}>
@@ -119,7 +139,7 @@ export default function Dashboard() {
         </ul>
       </section>
 
-      <MapPanel observations={observations} />
+      <MapPanel observations={filtered} />
     </div>
   );
 }

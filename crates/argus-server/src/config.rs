@@ -16,6 +16,9 @@ pub struct ArgusConfig {
     /// Telemetry settings.
     #[serde(default)]
     pub telemetry: TelemetrySection,
+    /// Market-data settings.
+    #[serde(default)]
+    pub markets: MarketsConfig,
 }
 
 /// HTTP/WS listener settings.
@@ -92,6 +95,89 @@ pub struct TelemetrySection {
     /// Max log level (`info`, `debug`, ...).
     #[serde(default = "default_level")]
     pub level: String,
+}
+
+/// Market-data settings.
+#[derive(Debug, Clone, Deserialize)]
+pub struct MarketsConfig {
+    /// Binance trade WebSocket enabled.
+    #[serde(default = "default_true")]
+    pub binance_ws_enabled: bool,
+    /// Binance symbols for the trade stream and klines.
+    #[serde(default = "default_binance_symbols")]
+    pub binance_symbols: Vec<String>,
+    /// Binance klines polling enabled (candle history).
+    #[serde(default = "default_true")]
+    pub binance_klines_enabled: bool,
+    /// Kline interval (`1m`, `5m`, `1h`, ...).
+    #[serde(default = "default_klines_interval")]
+    pub binance_klines_interval: String,
+    /// Klines fetched per refresh.
+    #[serde(default = "default_klines_limit")]
+    pub binance_klines_limit: u32,
+    /// Klines refresh interval, seconds.
+    #[serde(default = "default_klines_refresh_secs")]
+    pub binance_klines_refresh_secs: u64,
+    /// Alpaca latest-trades poll enabled (needs keys).
+    #[serde(default)]
+    pub alpaca_enabled: bool,
+    /// Alpaca key id; or set `ARGUS_MARKETS_ALPACA_KEY_ID`.
+    #[serde(default)]
+    pub alpaca_key_id: String,
+    /// Alpaca secret; or set `ARGUS_MARKETS_ALPACA_SECRET`.
+    #[serde(default)]
+    pub alpaca_secret: String,
+    /// Alpaca symbols.
+    #[serde(default = "default_alpaca_symbols")]
+    pub alpaca_symbols: Vec<String>,
+    /// Alpaca poll interval, seconds.
+    #[serde(default = "default_alpaca_interval_secs")]
+    pub alpaca_interval_secs: u64,
+}
+
+impl Default for MarketsConfig {
+    fn default() -> Self {
+        Self {
+            binance_ws_enabled: true,
+            binance_symbols: default_binance_symbols(),
+            binance_klines_enabled: true,
+            binance_klines_interval: default_klines_interval(),
+            binance_klines_limit: default_klines_limit(),
+            binance_klines_refresh_secs: default_klines_refresh_secs(),
+            alpaca_enabled: false,
+            alpaca_key_id: String::new(),
+            alpaca_secret: String::new(),
+            alpaca_symbols: default_alpaca_symbols(),
+            alpaca_interval_secs: default_alpaca_interval_secs(),
+        }
+    }
+}
+
+fn default_binance_symbols() -> Vec<String> {
+    ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
+}
+
+fn default_klines_interval() -> String {
+    "1m".to_string()
+}
+
+fn default_klines_limit() -> u32 {
+    300
+}
+
+fn default_klines_refresh_secs() -> u64 {
+    30
+}
+
+fn default_alpaca_symbols() -> Vec<String> {
+    vec!["AAPL".to_string()]
+}
+
+fn default_alpaca_interval_secs() -> u64 {
+    15
 }
 
 impl Default for ServerConfig {

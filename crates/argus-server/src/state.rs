@@ -22,6 +22,8 @@ pub struct AppState {
     pub hub: Arc<BroadcastHub<EventEnvelope<Event>>>,
     /// Health registry backing `/readyz`.
     pub health: healthkit::HealthRegistry,
+    /// Candle history per symbol (klines refresh).
+    candles: RwLock<BTreeMap<String, VecDeque<mdkit::Candle>>>,
     /// Last successful poll per source name, epoch ms.
     last_ok_ms: RwLock<HashMap<String, i64>>,
     observations: RwLock<VecDeque<Observation>>,
@@ -37,6 +39,7 @@ impl AppState {
             bus: EventBus::new(),
             hub: Arc::new(BroadcastHub::new(1024)),
             health: healthkit::HealthRegistry::new(),
+            candles: RwLock::new(BTreeMap::new()),
             last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),
             quotes: RwLock::new(BTreeMap::new()),
@@ -84,6 +87,26 @@ impl AppState {
     #[must_use]
     pub fn quotes_snapshot(&self) -> BTreeMap<String, Quote> {
         read_tolerant(&self.quotes).clone()
+    }
+
+    /// Replaces the candle history for `symbol` (klines refresh).
+    pub fn set_candles(&self, symbol: &str, batch: Vec<mdkit::Candle>) {
+        let mut deque = VecDeque::with_capacity(batch.len());
+        deque.extend(batch);
+        write_tolerant(&self.candles).insert(symbol.to_string(), deque);
+    }
+
+    /// Candle history for `symbol`, oldest first, at most `limit`.
+    #[must_use]
+    pub fn candles_for(&self, symbol: &str, limit: usize) -> Vec<mdkit::Candle> {
+        let guard = read_tolerant(&self.candles);
+        match guard.get(symbol) {
+            Some(history) => {
+                let skip = history.len().saturating_sub(limit);
+                history.iter().skip(skip).copied().collect()
+            }
+            None => Vec::new(),
+        }
     }
 }
 

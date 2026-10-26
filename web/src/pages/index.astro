@@ -41,6 +41,54 @@ import Dashboard from "../components/Dashboard";
         color: var(--accent);
       }
       header .sub { color: var(--muted); font-size: 0.8rem; }
+      header .hint { margin-left: auto; color: var(--muted); font-size: 0.72rem; }
+      kbd {
+        background: var(--border);
+        border-radius: 3px;
+        padding: 0.05rem 0.35rem;
+        font-size: 0.7rem;
+      }
+      .palette-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(4, 6, 10, 0.6);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding-top: 14vh;
+        z-index: 50;
+      }
+      .palette {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.6rem;
+        width: min(560px, 90vw);
+      }
+      .palette input {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.5rem 0.7rem;
+        font: inherit;
+        outline: none;
+      }
+      .palette input:focus { border-color: var(--accent); }
+      .palette-status { color: var(--muted); font-size: 0.72rem; padding: 0.4rem 0.2rem 0; }
+      .switcher { display: flex; gap: 0.3rem; }
+      .sym {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        border-radius: 4px;
+        font: inherit;
+        font-size: 0.7rem;
+        padding: 0.15rem 0.45rem;
+        cursor: pointer;
+      }
+      .sym.active { color: var(--accent); border-color: var(--accent); }
       main { padding: 1rem 1.25rem; }
       .grid {
         display: grid;
@@ -122,7 +170,8 @@ import Dashboard from "../components/Dashboard";
   <body>
     <header>
       <h1>argus</h1>
-      <span class="sub">M1 · world intel: usgs / eonet / swpc / nvd / news (+firms w/ key)</span>
+      <span class="sub">M2 · world intel + markets</span>
+      <span class="hint"><kbd>Ctrl</kbd>+<kbd>K</kbd> palette — try <kbd>ch ETHUSDT</kbd>, <kbd>feed fire</kbd></span>
     </header>
     <main>
       <Dashboard client:only="solid" />

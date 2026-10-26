@@ -30,6 +30,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/stream", get(crate::ws::stream))
         .route("/api/v1/observations", get(observations))
         .route("/api/v1/quotes", get(quotes))
+        .route("/api/v1/candles", get(candles))
         .with_state(state)
         .merge(health)
 }
@@ -50,4 +51,23 @@ pub async fn quotes(State(state): State<Arc<AppState>>) -> Json<ApiResponse<serd
     let snapshot = state.quotes_snapshot();
     let value = serde_json::to_value(snapshot).unwrap_or(serde_json::Value::Null);
     Json(ApiResponse::success(value))
+}
+
+/// Query for the candles endpoint.
+#[derive(Debug, Deserialize)]
+pub struct CandlesQuery {
+    /// Chart symbol (`BTCUSDT`).
+    pub symbol: String,
+    /// Max candles to return (1..=600, default 300).
+    pub limit: Option<usize>,
+}
+
+/// `GET /api/v1/candles` — OHLCV history for one symbol, oldest first.
+#[tracing::instrument(skip(state))]
+pub async fn candles(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CandlesQuery>,
+) -> Json<ApiResponse<Vec<mdkit::Candle>>> {
+    let limit = query.limit.unwrap_or(300).clamp(1, 600);
+    Json(ApiResponse::success(state.candles_for(&query.symbol, limit)))
 }

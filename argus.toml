@@ -26,5 +26,19 @@ firms_enabled = false
 firms_map_key = ""      # or ARGUS_FEEDS_FIRMS_MAP_KEY
 firms_interval_secs = 300
 
+[markets]
+binance_ws_enabled = true
+binance_symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+binance_klines_enabled = true
+binance_klines_interval = "1m"
+binance_klines_limit = 300
+binance_klines_refresh_secs = 30
+# Alpaca needs key+secret (free IEX feed): https://alpaca.markets
+alpaca_enabled = false
+alpaca_key_id = ""      # or ARGUS_MARKETS_ALPACA_KEY_ID
+alpaca_secret = ""      # or ARGUS_MARKETS_ALPACA_SECRET
+alpaca_symbols = ["AAPL"]
+alpaca_interval_secs = 15
+
 [telemetry]
 level = "info"

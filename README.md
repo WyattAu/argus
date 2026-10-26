@@ -4,9 +4,11 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M1 world-intel** — seven live feeds (USGS quakes, NASA EONET, NOAA SWPC,
-NVD CVEs, BBC World RSS, FIRMS w/ MAP_KEY, sim market), REST + WebSocket surface,
-Astro+Solid shell with kind-colored world map (MapLibre demotiles).
+**Status: M2 markets** — everything from M1 (six world-intel feeds + map) plus
+**mdkit**: live Binance trade stream (WS, auto-reconnect) and 1m klines for
+BTCUSDT/ETHUSDT/SOLUSDT, key-gated Alpaca equities quotes, `/api/v1/candles`,
+candlestick panel with live-tick folding, and a Ctrl+K command palette
+(`ch BTCUSDT`, `feed fire`, `help`).
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -36,6 +38,7 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /readyz` | readiness w/ per-feed freshness checks |
 | `GET /api/v1/observations?limit=` | recent world observations (`api-types` envelope) |
 | `GET /api/v1/quotes` | latest quote per symbol |
+| `GET /api/v1/candles?symbol=` | OHLCV history (`plycore::CandleData`), oldest first |
 | `GET /api/v1/stream` | WebSocket: JSON `EventEnvelope<Event>` frames, CSWSH origin-checked |
 
 Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>` — wildcards `*`/`**`.
@@ -46,7 +49,8 @@ FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
 ## Dogfooded so far
 
 config-kit · telemetry-init · healthkit · eventbus-kit · ws-kit · api-types ·
-http-error · fetch-kit (+breaker) · breaker · feedkit (new; 7 adapters)
+http-error · fetch-kit (+breaker) · breaker · plycore (CandleData in mdkit) ·
+feedkit (7 adapters) · mdkit (new; Binance + Alpaca)
 
 Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
@@ -78,6 +82,12 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
    FIRMS area API needs a MAP_KEY; adapter is `Option`-gated on it.
 10. EONET categories map: wildfires→`Fire`, severeStorms→`Weather`,
     volcanoes→`Volcano`, everything else→`News`.
+11. reqwest 0.13 renamed the `rustls-tls` feature to `rustls` — the old name
+    fails version selection.
+12. Binance combined streams use `<symbol>@<channel>`; `/` connects but
+    delivers zero frames (silent). Always log the dialed URI.
+13. tokio-tungstenite `split()`: Pongs queued on Ping are only flushed when
+    you `send()` — handle `Message::Ping` explicitly or Binance drops you.
 
 ## Estate gates
 
@@ -88,7 +98,7 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Roadmap
 
-M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
+M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →

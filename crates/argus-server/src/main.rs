@@ -16,6 +16,7 @@ use std::time::Duration;
 use clap::Parser;
 use feedkit::{EonetSource, FirmsSource, NewsSource, NvdSource, SimMarket, SwpcSource, UsgsSource};
 use healthkit::HealthStatus;
+use mdkit::AlpacaQuotes;
 use tokio::signal::unix::{signal, SignalKind};
 
 use crate::config::ArgusConfig;
@@ -63,6 +64,7 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 async fn serve(cfg: config::ArgusConfig) -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new(cfg));
     spawn_feeds(&state);
+    spawn_markets(&state);
     register_health_checks(&state);
     feeds::bridge_bus(Arc::clone(&state)).await;
 
@@ -192,6 +194,81 @@ fn register_health_checks(state: &Arc<AppState>) {
                     }
                 }
             });
+    }
+
+    if markets_ws_live(state) {
+        let st = Arc::clone(state);
+        state
+            .health
+            .add_check("md-binance-ws", move || {
+                let st = Arc::clone(&st);
+                async move {
+                    // Crypto trades flow continuously; 90 s quiet = degraded.
+                    let age = st.ms_since_ok("binance-ws", feedkit::now_ms());
+                    if age < 90_000 {
+                        Ok(HealthStatus::Healthy)
+                    } else {
+                        Ok(HealthStatus::Degraded)
+                    }
+                }
+            });
+    }
+}
+
+fn markets_ws_live(state: &Arc<AppState>) -> bool {
+    state.cfg.markets.binance_ws_enabled && !state.cfg.markets.binance_symbols.is_empty()
+}
+
+/// Spawns the market-data tasks: Binance trade WS, klines refresh, Alpaca.
+fn spawn_markets(state: &Arc<AppState>) {
+    let m = &state.cfg.markets;
+
+    if markets_ws_live(state) {
+        let st = Arc::clone(state);
+        let symbols = m.binance_symbols.clone();
+        tokio::spawn(async move {
+            mdkit::binance::trades_ws(&symbols, move |quote| {
+                st.record_ok("binance-ws", feedkit::now_ms());
+                let st = Arc::clone(&st);
+                tokio::spawn(async move {
+                    let topic = format!("md.binance.{}", quote.symbol.to_lowercase());
+                    if let Err(error) = st.bus.publish(topic, feedkit::Event::Quote(quote)).await {
+                        tracing::warn!(%error, "bus publish failed");
+                    }
+                });
+            })
+            .await;
+        });
+    }
+
+    if m.binance_klines_enabled {
+        for symbol in m.binance_symbols.clone() {
+            let st = Arc::clone(state);
+            let interval = m.binance_klines_interval.clone();
+            let limit = m.binance_klines_limit;
+            let refresh = Duration::from_secs(m.binance_klines_refresh_secs.max(10));
+            tokio::spawn(mdkit::binance::klines_refresh(
+                symbol.clone(),
+                interval,
+                limit,
+                refresh,
+                move |batch| st.set_candles(&symbol, batch),
+            ));
+        }
+    }
+
+    if m.alpaca_enabled {
+        let Some(source) =
+            AlpacaQuotes::new(&m.alpaca_key_id, &m.alpaca_secret, m.alpaca_symbols.clone())
+        else {
+            tracing::warn!("alpaca enabled but alpaca_key_id/alpaca_secret are empty; skipping");
+            return;
+        };
+        tokio::spawn(feeds::run_source(
+            Arc::clone(state),
+            source,
+            Duration::from_secs(m.alpaca_interval_secs.max(5)),
+        ));
     }
 }
 
