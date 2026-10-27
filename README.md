@@ -4,12 +4,11 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M3 ontology** — everything from M1/M2 plus **ontokit** (entities +
-links extracted live from every event and quote) and **graphkit** (petgraph
-link graph, n-hop queries). New: `/api/v1/search` (tantivy, in-RAM),
-`/api/v1/entities` + n-hop `/neighbors` (accessctl role-gated),
-`/api/v1/provenance` (SHA-256 tamper-evident chain, verifiable). Web: entity
-inspector with radial neighborhood graph.
+**Status: M4 authN + alerts** — everything from M1–M3 plus **alertkit**
+(config-driven rules: threshold on magnitude/price, per-rule+entity
+cooldowns, Telegram sink, alerts on the bus at `alerts.rule.<id>`) and
+tokenkit-backed JWT auth (`POST /api/v1/auth/token` mints Bearer tokens;
+without `auth.jwt_secret` the server runs in dev header mode).
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -45,8 +44,13 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /api/v1/entities/{id}/neighbors?hops=` | n-hop neighborhood, entity-joined |
 | `GET /api/v1/provenance` | chain head + verify + recent mutations |
 
-Ontology endpoints are gated: `x-argus-role: viewer|editor|admin` (default
-`viewer`; unknown roles get 403). Real authN lands in M4.
+Ontology endpoints are gated. Two modes:
+
+- **Dev (default)** — `auth.jwt_secret` empty: `x-argus-role` headers trusted.
+- **JWT** — set `auth.jwt_secret` (or `ARGUS_AUTH_JWT_SECRET`): mint via
+  `POST /api/v1/auth/token` with header `x-argus-mint-key: <secret>` and body
+  `{user, role, ttl_secs}`; call APIs with `Authorization: Bearer <token>`.
+  Missing/invalid tokens get 401, wrong roles 403.
 | `GET /api/v1/stream` | WebSocket: JSON `EventEnvelope<Event>` frames, CSWSH origin-checked |
 
 Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>` — wildcards `*`/`**`.
@@ -58,8 +62,9 @@ FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
 
 config-kit · telemetry-init · healthkit · eventbus-kit · ws-kit · api-types ·
 http-error · fetch-kit (+breaker) · breaker · plycore (CandleData in mdkit) ·
-accessctl (Role::has_at_least gate) · feedkit (7 adapters) · mdkit (Binance +
-Alpaca) · graphkit + ontokit (new; petgraph, sha2, tantivy underneath)
+accessctl (Role::has_at_least gate) · tokenkit (JwtService mint/verify) ·
+feedkit (8 event types incl. Alert) · feedkit adapters (7) · mdkit (Binance +
+Alpaca) · graphkit + ontokit · alertkit (new; rules, cooldowns, Telegram)
 
 Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
@@ -112,6 +117,11 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 18. Regression lesson: `#[derive(Default)]` on a type whose `new()`
     establishes an invariant (genesis hash) silently skips the invariant
     — one store consumed `default()`. Test the default path too.
+19. tokenkit 1.0: `JwtConfig` has a full `Default` (HS256, exp+iss
+    required) — struct-update syntax; set `issuer: Some(...)` or decode
+    rejects your own tokens. `decode(&str)`, `encode(&claims)` generic.
+20. Binance combined-stream silence is self-inflicted 90% of the time:
+    log the dialed URI before blaming the network.
 
 ## Estate gates
 
@@ -122,7 +132,7 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Roadmap
 
-M4 authN + alerts (tokenkit/barbican JWT on the gate, alertkit rules → Telegram) →
+M5 PE/back-office (ledger-kit holdings, recon-kit cash, invoice/AP panels) →
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →

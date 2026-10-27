@@ -1,7 +1,7 @@
 //! Shared application state: bus, hub, caches, health signals.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use typed_eventbus::{EventBus, EventEnvelope};
 use ws_kit::hub::BroadcastHub;
@@ -27,6 +27,12 @@ pub struct AppState {
     pub ontology: RwLock<ontokit::EntityStore>,
     /// Full-text index over observations.
     pub search: SearchIndex,
+    /// JWT service when `auth.jwt_secret` is configured; None = dev mode.
+    pub jwt: Option<tokenkit::service::JwtService>,
+    /// Alert-rule engine (cooldown state inside).
+    pub alerts_engine: Mutex<alertkit::Engine>,
+    /// Telegram sink when credentials are configured.
+    pub telegram: Option<Arc<alertkit::TelegramSink>>,
     /// Candle history per symbol (klines refresh).
     candles: RwLock<BTreeMap<String, VecDeque<mdkit::Candle>>>,
     /// Last successful poll per source name, epoch ms.
@@ -41,6 +47,7 @@ impl AppState {
     /// # Errors
     /// Returns the tantivy error when the search index cannot start.
     pub fn new(cfg: ArgusConfig) -> tantivy::Result<Self> {
+        let alert_rules = cfg.alerts.rules.clone();
         Ok(Self {
             cfg,
             bus: EventBus::new(),
@@ -48,6 +55,9 @@ impl AppState {
             health: healthkit::HealthRegistry::new(),
             ontology: RwLock::new(ontokit::EntityStore::new()),
             search: SearchIndex::new()?,
+            jwt: None,
+            alerts_engine: Mutex::new(alertkit::Engine::new(alert_rules)),
+            telegram: None,
             candles: RwLock::new(BTreeMap::new()),
             last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),

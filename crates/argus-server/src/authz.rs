@@ -13,11 +13,53 @@ use axum::http::header::HeaderName;
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use serde::{Deserialize, Serialize};
+use tokenkit::extractors::extract_bearer_token;
 
+use crate::error::ServerError;
 use crate::state::AppState;
 
 const USER_HEADER: HeaderName = HeaderName::from_static("x-argus-user");
 const ROLE_HEADER: HeaderName = HeaderName::from_static("x-argus-role");
+
+/// JWT claims for argus tokens (minted by `/api/v1/auth/token`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArgusClaims {
+    /// Principal id.
+    pub sub: String,
+    /// Role (`viewer` / `editor` / `admin`).
+    pub role: String,
+    /// Issuer — must match `auth.issuer`.
+    pub iss: String,
+    /// Expiry, unix seconds.
+    pub exp: u64,
+}
+
+/// Issues a token when JWT auth is configured.
+///
+/// # Errors
+/// Returns [`ServerError::Internal`] when no JWT secret is configured or
+/// encoding fails.
+pub(crate) fn issue_token(
+    state: &AppState,
+    user: &str,
+    role: &str,
+    ttl_secs: i64,
+) -> Result<String, ServerError> {
+    let Some(service) = &state.jwt else {
+        return Err(ServerError::Internal(
+            "JWT auth not configured (auth.jwt_secret is empty)".to_string(),
+        ));
+    };
+    let claims = ArgusClaims {
+        sub: user.to_string(),
+        role: role.to_string(),
+        iss: state.cfg.auth.issuer.clone(),
+        exp: u64::try_from(feedkit::now_ms() / 1000 + ttl_secs.clamp(60, 86_400))
+            .unwrap_or(u64::MAX),
+    };
+    service.encode(&claims).map_err(|error| ServerError::Internal(error.to_string()))
+}
 
 /// An authenticated-for-read request principal.
 #[derive(Debug, Clone)]
@@ -30,7 +72,8 @@ pub struct Reader {
     pub role: Role,
 }
 
-fn role_from_str(value: &str) -> Option<Role> {
+/// Role-string parser.
+pub(crate) fn role_from_str(value: &str) -> Option<Role> {
     match value.to_ascii_lowercase().as_str() {
         "viewer" => Some(Role::Viewer),
         "editor" => Some(Role::Editor),
@@ -45,8 +88,31 @@ impl FromRequestParts<Arc<AppState>> for Reader {
     #[allow(clippy::unused_async_trait_impl)] // axum extractor trait is async
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &Arc<AppState>,
+        state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
+        // JWT mode: a Bearer token is mandatory and role comes from claims.
+        if let Some(service) = &state.jwt {
+            let header = parts
+                .headers
+                .get(axum::http::header::AUTHORIZATION)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+            let Some(token) = extract_bearer_token(header) else {
+                return Err((StatusCode::UNAUTHORIZED, "missing bearer token").into_response());
+            };
+            let claims: ArgusClaims = service
+                .decode(token.as_str())
+                .map_err(|error| (StatusCode::UNAUTHORIZED, error.to_string()).into_response())?;
+            let Some(role) = role_from_str(&claims.role) else {
+                return Err((StatusCode::FORBIDDEN, "unknown role in token").into_response());
+            };
+            if !role.has_at_least(&Role::Viewer) {
+                return Err((StatusCode::FORBIDDEN, "insufficient role").into_response());
+            }
+            return Ok(Reader { user: claims.sub, role });
+        }
+
+        // Dev mode: headers are trusted; a startup warning says so.
         let user = parts
             .headers
             .get(USER_HEADER)

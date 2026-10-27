@@ -19,6 +19,42 @@ pub struct ArgusConfig {
     /// Market-data settings.
     #[serde(default)]
     pub markets: MarketsConfig,
+    /// Auth settings (JWT).
+    #[serde(default)]
+    pub auth: AuthConfig,
+    /// Alert rules + sinks.
+    #[serde(default)]
+    pub alerts: AlertsConfig,
+}
+
+/// JWT auth settings.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct AuthConfig {
+    /// HMAC secret for minting/verifying tokens. Empty = dev header mode
+    /// (`x-argus-role` headers trusted). Or set `ARGUS_AUTH_JWT_SECRET`.
+    #[serde(default)]
+    pub jwt_secret: String,
+    /// Token issuer, validated on decode.
+    #[serde(default = "default_issuer")]
+    pub issuer: String,
+}
+
+fn default_issuer() -> String {
+    "argus".to_string()
+}
+
+/// Alert rules and delivery sinks.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct AlertsConfig {
+    /// Telegram bot token; or set `ARGUS_ALERTS_TELEGRAM_BOT_TOKEN`.
+    #[serde(default)]
+    pub telegram_bot_token: String,
+    /// Telegram chat id; or set `ARGUS_ALERTS_TELEGRAM_CHAT_ID`.
+    #[serde(default)]
+    pub telegram_chat_id: String,
+    /// Alert rules.
+    #[serde(default)]
+    pub rules: Vec<alertkit::Rule>,
 }
 
 /// HTTP/WS listener settings.

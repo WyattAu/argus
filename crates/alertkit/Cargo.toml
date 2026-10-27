@@ -1,0 +1,21 @@
+[package]
+name = "alertkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Rule-based alerting for the argus intelligence platform"
+
+[dependencies]
+feedkit.workspace = true
+fetch-kit.workspace = true
+breaker.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

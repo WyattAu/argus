@@ -22,7 +22,8 @@ mod usgs;
 
 pub use error::FeedError;
 pub use event::{
-    kind_slug, now_ms, rfc2822_to_ms, rfc3339_to_ms, Event, Observation, ObservationKind, Quote,
+    kind_slug, now_ms, rfc2822_to_ms, rfc3339_to_ms, Alert, Event, Observation, ObservationKind,
+    Quote,
 };
 pub use eonet::EonetSource;
 pub use firms::FirmsSource;

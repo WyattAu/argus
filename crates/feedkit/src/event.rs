@@ -51,6 +51,21 @@ pub struct Quote {
     pub ts_ms: i64,
 }
 
+/// A fired rule alert — derived from platform events, delivered to sinks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alert {
+    /// Rule that fired.
+    pub rule_id: String,
+    /// Human rule name.
+    pub rule_name: String,
+    /// Rendered message.
+    pub message: String,
+    /// Entity the alert is about (`event:usgs:x`, `symbol:BTCUSDT`, ...).
+    pub entity: String,
+    /// Fire time, epoch ms.
+    pub ts_ms: i64,
+}
+
 /// Everything that can flow through the bus.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -59,6 +74,8 @@ pub enum Event {
     Observation(Observation),
     /// Market quote.
     Quote(Quote),
+    /// Fired alert rule.
+    Alert(Alert),
 }
 
 /// Coarse observation category.

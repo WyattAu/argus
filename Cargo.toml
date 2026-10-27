@@ -40,6 +40,7 @@ fetch-kit = { version = "0.2.1", features = ["circuit-breaker"] }
 breaker = "2.0.2"
 plycore = "0.2"
 accessctl = "0.1.3"
+tokenkit = "1.0"
 
 # External.
 axum = { version = "0.8", features = ["ws"] }
@@ -62,6 +63,7 @@ feedkit = { path = "crates/feedkit", version = "0.1.0" }
 mdkit = { path = "crates/mdkit", version = "0.1.0" }
 graphkit = { path = "crates/graphkit", version = "0.1.0" }
 ontokit = { path = "crates/ontokit", version = "0.1.0" }
+alertkit = { path = "crates/alertkit", version = "0.1.0" }
 
 [profile.release]
 lto = "thin"

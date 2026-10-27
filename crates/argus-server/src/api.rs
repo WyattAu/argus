@@ -6,7 +6,7 @@ use std::sync::Arc;
 use api_types::ApiResponse;
 use axum::extract::{Path, Query, State};
 
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use ontokit::EntityKind;
 use serde::Deserialize;
@@ -40,6 +40,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/entities/{id}/neighbors", get(neighbors))
         .route("/api/v1/search", get(search))
         .route("/api/v1/provenance", get(provenance))
+        .route("/api/v1/auth/token", post(mint_token))
         .with_state(state)
         .merge(health)
 }
@@ -183,4 +184,60 @@ pub async fn provenance(
         "mutations": guard.provenance_tail(query.tail.unwrap_or(20)),
     });
     Json(ApiResponse::success(value))
+}
+
+/// Request body for token minting.
+#[derive(Debug, Deserialize)]
+pub struct MintRequest {
+    /// Principal id to embed in the token.
+    pub user: String,
+    /// Role to embed (`viewer` / `editor` / `admin`).
+    pub role: String,
+    /// Token lifetime, seconds (`60..=86_400`, default `3_600`).
+    #[serde(default = "default_ttl_secs")]
+    pub ttl_secs: i64,
+}
+
+fn default_ttl_secs() -> i64 {
+    3_600
+}
+
+/// `POST /api/v1/auth/token` — mint a bearer token.
+///
+/// Gated by `x-argus-mint-key` matching `auth.jwt_secret`; mints with the
+/// same secret (HMAC), so possession of the secret is the mint credential.
+#[tracing::instrument(skip(state, headers))]
+pub async fn mint_token(
+    State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
+    Json(request): Json<MintRequest>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, ServerError> {
+    let secret = state.cfg.auth.jwt_secret.trim();
+    if secret.is_empty() {
+        return Err(ServerError::Internal(
+            "JWT auth not configured (auth.jwt_secret is empty)".to_string(),
+        ));
+    }
+    let presented = headers
+        .get("x-argus-mint-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if presented != secret {
+        return Err(ServerError::NotFound("valid mint key"));
+    }
+    // Validate the role through the same gate vocabulary as authz.
+    if crate::authz::role_from_str(&request.role).is_none() {
+        return Err(ServerError::NotFound("unknown role"));
+    }
+    let token = crate::authz::issue_token(
+        &state,
+        &request.user,
+        &request.role,
+        request.ttl_secs,
+    )?;
+    Ok(Json(ApiResponse::success(serde_json::json!({
+        "token": token,
+        "token_type": "Bearer",
+        "expires_in": request.ttl_secs.clamp(60, 86_400),
+    }))))
 }

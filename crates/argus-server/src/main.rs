@@ -64,7 +64,37 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(cfg: config::ArgusConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let state = Arc::new(AppState::new(cfg)?);
+    let mut state = AppState::new(cfg)?;
+
+    // JWT service when a secret is configured; otherwise dev header mode.
+    if state.cfg.auth.jwt_secret.trim().is_empty() {
+        tracing::warn!(
+            "auth: auth.jwt_secret empty — dev header mode (x-argus-role trusted)"
+        );
+    } else {
+        let config = tokenkit::service::JwtConfig {
+            secret: state.cfg.auth.jwt_secret.clone(),
+            issuer: Some(state.cfg.auth.issuer.clone()),
+            ..tokenkit::service::JwtConfig::default()
+        };
+        state.jwt = Some(tokenkit::service::JwtService::new(config));
+    }
+
+    // Telegram sink when credentials are configured.
+    if !state.cfg.alerts.telegram_bot_token.trim().is_empty()
+        && !state.cfg.alerts.telegram_chat_id.trim().is_empty()
+    {
+        let sink = alertkit::TelegramSink::new(
+            state.cfg.alerts.telegram_bot_token.clone(),
+            state.cfg.alerts.telegram_chat_id.clone(),
+        );
+        state.telegram = Some(Arc::new(sink));
+        tracing::info!("alerts: telegram sink enabled");
+    } else {
+        tracing::info!("alerts: telegram sink disabled (no credentials)");
+    }
+
+    let state = Arc::new(state);
     spawn_feeds(&state);
     spawn_markets(&state);
     register_health_checks(&state);
