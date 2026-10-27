@@ -15,6 +15,9 @@ path = "src/main.rs"
 [dependencies]
 feedkit.workspace = true
 mdkit.workspace = true
+ontokit.workspace = true
+accessctl.workspace = true
+tantivy.workspace = true
 eventbus-kit.workspace = true
 ws-kit.workspace = true
 healthkit.workspace = true

@@ -1,10 +1,12 @@
-//! argus — all-purpose intelligence platform. M1: world-intel feeds
-//! (USGS, EONET, SWPC, NVD, news RSS, FIRMS), bus-backed REST + WS surface.
+//! argus — all-purpose intelligence platform. M3: ontology + search +
+//! accessctl-gated entity surface on top of the M1/M2 feed and market layers.
 
 mod api;
+mod authz;
 mod config;
 mod error;
 mod feeds;
+mod search;
 mod state;
 mod ws;
 
@@ -62,7 +64,7 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(cfg: config::ArgusConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let state = Arc::new(AppState::new(cfg));
+    let state = Arc::new(AppState::new(cfg)?);
     spawn_feeds(&state);
     spawn_markets(&state);
     register_health_checks(&state);

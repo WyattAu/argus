@@ -165,6 +165,62 @@ import Dashboard from "../components/Dashboard";
         box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
         cursor: pointer;
       }
+      .searchrow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+      .searchbox {
+        flex: 1;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.45rem 0.7rem;
+        font: inherit;
+        outline: none;
+      }
+      .searchbox:focus { border-color: var(--accent); }
+      .searchrow button {
+        background: transparent;
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        border-radius: 5px;
+        font: inherit;
+        padding: 0.3rem 0.8rem;
+        cursor: pointer;
+      }
+      .hits { list-style: none; margin: 0 0 0.6rem; padding: 0; }
+      .hits button {
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font: inherit;
+        font-size: 0.75rem;
+        padding: 0.2rem 0;
+        cursor: pointer;
+        text-align: left;
+      }
+      .hits button:hover { color: var(--accent); }
+      .graphrow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+      .minigraph { width: 100%; background: var(--bg); border-radius: 6px; }
+      .neighbors { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+      .neighbors li {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.72rem;
+      }
+      .neighbors .title { flex: 1; min-width: 0; }
+      .neighbors button {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        border-radius: 4px;
+        font: inherit;
+        font-size: 0.65rem;
+        padding: 0.05rem 0.4rem;
+        cursor: pointer;
+      }
+      .neighbors button:hover { color: var(--accent); border-color: var(--accent); }
     </style>
   </head>
   <body>

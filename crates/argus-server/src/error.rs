@@ -1,8 +1,4 @@
 //! REST error type mapped to HTTP via `http-error`.
-//!
-//! Wired into handlers from M1 onward, when endpoints become fallible.
-
-#![allow(dead_code)]
 
 use api_types::ApiResponse;
 use axum::http::StatusCode;

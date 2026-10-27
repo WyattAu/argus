@@ -1,0 +1,16 @@
+[package]
+name = "graphkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Typed link graph with n-hop queries for the argus intelligence platform"
+
+[dependencies]
+petgraph.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

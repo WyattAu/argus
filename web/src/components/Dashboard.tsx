@@ -2,6 +2,7 @@
 // One WS feed; plychart replaces the canvas stubs once it ships wasm/npm.
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import Candles from "./Candles";
+import EntityPanel from "./EntityPanel";
 import MapPanel from "./MapPanel";
 import Palette from "./Palette";
 import { KIND_COLOR, kindLabel, type Observation, type Quote } from "./kinds";
@@ -140,6 +141,8 @@ export default function Dashboard() {
       </section>
 
       <MapPanel observations={filtered} />
+
+      <EntityPanel />
     </div>
   );
 }

@@ -4,11 +4,12 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M2 markets** — everything from M1 (six world-intel feeds + map) plus
-**mdkit**: live Binance trade stream (WS, auto-reconnect) and 1m klines for
-BTCUSDT/ETHUSDT/SOLUSDT, key-gated Alpaca equities quotes, `/api/v1/candles`,
-candlestick panel with live-tick folding, and a Ctrl+K command palette
-(`ch BTCUSDT`, `feed fire`, `help`).
+**Status: M3 ontology** — everything from M1/M2 plus **ontokit** (entities +
+links extracted live from every event and quote) and **graphkit** (petgraph
+link graph, n-hop queries). New: `/api/v1/search` (tantivy, in-RAM),
+`/api/v1/entities` + n-hop `/neighbors` (accessctl role-gated),
+`/api/v1/provenance` (SHA-256 tamper-evident chain, verifiable). Web: entity
+inspector with radial neighborhood graph.
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -39,6 +40,13 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /api/v1/observations?limit=` | recent world observations (`api-types` envelope) |
 | `GET /api/v1/quotes` | latest quote per symbol |
 | `GET /api/v1/candles?symbol=` | OHLCV history (`plycore::CandleData`), oldest first |
+| `GET /api/v1/search?q=` | full-text over observations (tantivy) |
+| `GET /api/v1/entities?kind=` | ontology entities, newest-seen first |
+| `GET /api/v1/entities/{id}/neighbors?hops=` | n-hop neighborhood, entity-joined |
+| `GET /api/v1/provenance` | chain head + verify + recent mutations |
+
+Ontology endpoints are gated: `x-argus-role: viewer|editor|admin` (default
+`viewer`; unknown roles get 403). Real authN lands in M4.
 | `GET /api/v1/stream` | WebSocket: JSON `EventEnvelope<Event>` frames, CSWSH origin-checked |
 
 Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>` — wildcards `*`/`**`.
@@ -50,7 +58,8 @@ FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
 
 config-kit · telemetry-init · healthkit · eventbus-kit · ws-kit · api-types ·
 http-error · fetch-kit (+breaker) · breaker · plycore (CandleData in mdkit) ·
-feedkit (7 adapters) · mdkit (new; Binance + Alpaca)
+accessctl (Role::has_at_least gate) · feedkit (7 adapters) · mdkit (Binance +
+Alpaca) · graphkit + ontokit (new; petgraph, sha2, tantivy underneath)
 
 Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
@@ -88,6 +97,21 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
     delivers zero frames (silent). Always log the dialed URI.
 13. tokio-tungstenite `split()`: Pongs queued on Ping are only flushed when
     you `send()` — handle `Message::Ping` explicitly or Binance drops you.
+14. accessctl 0.1.3: `cedar::authorize` exists but the `cedar` module is
+    **private** (README shows the call anyway). Published path =
+    `Role::has_at_least` / `RoleHierarchy`. The JWT `RequireRole`
+    extractor (tokenkit feature) is the M4 authN hook.
+15. `tantivy-ext` on crates.io is graysonrie's, not ours (collision) — M3
+    uses raw tantivy 0.27 behind `argus-server/src/search.rs`; rename
+    tantivy-ext before it can back this.
+16. `auditlog` likewise collides (JijoBose) — ontokit ships a minimal
+    SHA-256 chain (`ProvenanceChain`) as the stand-in.
+17. tantivy 0.27: `TopDocs` is no longer a `Collector` — call
+    `.order_by_score()`; `IndexWriter::commit` takes `&mut self`; document
+    values come back as `CompactDocValue` (convert via `OwnedValue::from`).
+18. Regression lesson: `#[derive(Default)]` on a type whose `new()`
+    establishes an invariant (genesis hash) silently skips the invariant
+    — one store consumed `default()`. Test the default path too.
 
 ## Estate gates
 
@@ -98,7 +122,7 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Roadmap
 
-M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
+M4 authN + alerts (tokenkit/barbican JWT on the gate, alertkit rules → Telegram) →
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →

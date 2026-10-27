@@ -7,7 +7,7 @@ use typed_eventbus::{EventBus, EventEnvelope};
 use tokio::time::MissedTickBehavior;
 use ws_kit::hub::BroadcastHub;
 
-use crate::state::AppState;
+use crate::state::{write_tolerant, AppState};
 use feedkit::{kind_slug, Event, Source, SourceBatch};
 
 /// Runs one source on a fixed interval, publishing every batch onto the bus.
@@ -38,6 +38,7 @@ pub async fn bridge_bus(state: Arc<AppState>) {
         .subscribe_sync("intel.**", move |envelope| {
             if let Event::Observation(observation) = &envelope.payload {
                 st.push_observation(observation.clone());
+                st.ingest_observation(observation);
             }
             let _ = hub.broadcast((*envelope).clone());
         })
@@ -50,6 +51,7 @@ pub async fn bridge_bus(state: Arc<AppState>) {
         .subscribe_sync("md.**", move |envelope| {
             if let Event::Quote(quote) = &envelope.payload {
                 st.upsert_quote(quote.clone());
+                write_tolerant(&st.ontology).ingest_quote(quote);
             }
             let _ = hub.broadcast((*envelope).clone());
         })

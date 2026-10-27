@@ -104,20 +104,26 @@ where
     let url = format!("{WS_BASE}?streams={streams}");
     let mut backoff = Duration::from_secs(2);
     loop {
-        let request = url
-            .as_str()
-            .into_client_request()
-            .expect("static binance url is a valid request");
-        tracing::info!(uri = %request.uri(), "binance ws dialing");
-        match tokio_tungstenite::connect_async(request).await {
-            Ok((ws, _)) => {
-                tracing::info!("binance ws connected");
-                backoff = Duration::from_secs(2);
-                stream_session(ws, &on_quote).await;
-                tracing::warn!("binance trade stream closed; reconnecting");
+        // Log the exact URI: stream names with `/` instead of `@` connect
+        // successfully and then deliver nothing — this line is the tell.
+        match url.as_str().into_client_request() {
+            Ok(request) => {
+                tracing::info!(uri = %request.uri(), "binance ws dialing");
+                match tokio_tungstenite::connect_async(request).await {
+                    Ok((ws, _)) => {
+                        tracing::info!("binance ws connected");
+                        backoff = Duration::from_secs(2);
+                        stream_session(ws, &on_quote).await;
+                        tracing::warn!("binance trade stream closed; reconnecting");
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "binance ws connect failed");
+                    }
+                }
             }
             Err(error) => {
-                tracing::warn!(%error, "binance ws connect failed");
+                tracing::error!(%error, "binance url is not a valid ws request");
+                return;
             }
         }
         tokio::time::sleep(backoff).await;
@@ -131,28 +137,19 @@ where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
     let (mut write, mut read) = ws.split();
-    let mut seen = 0u32;
     while let Some(message) = read.next().await {
         match message {
-            Ok(Message::Text(text)) => {
-                seen += 1;
-                if seen <= 2 {
-                    tracing::info!(frame = %text, "binance frame");
+            Ok(Message::Text(text)) => match parse_trade(&text) {
+                Some(quote) => on_quote(quote),
+                None => {
+                    tracing::warn!(frame = %text, "binance trade parse failed");
                 }
-                match parse_trade(&text) {
-                    Some(quote) => on_quote(quote),
-                    None => {
-                        tracing::warn!(frame = %text, "binance trade parse failed")
-                    }
-                }
-            }
+            },
             Ok(Message::Ping(payload)) => {
                 let _ = write.send(Message::Pong(payload)).await;
             }
             Ok(Message::Close(_)) | Err(_) => return,
-            Ok(other) => {
-                tracing::info!(?other, "binance ws other frame")
-            }
+            Ok(_) => {}
         }
     }
 }

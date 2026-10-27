@@ -1,0 +1,18 @@
+[package]
+name = "ontokit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Entity ontology with provenance for the argus intelligence platform"
+
+[dependencies]
+feedkit.workspace = true
+graphkit.workspace = true
+serde.workspace = true
+sha2.workspace = true
+
+[lints]
+workspace = true

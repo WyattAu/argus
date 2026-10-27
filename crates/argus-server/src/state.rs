@@ -7,7 +7,8 @@ use typed_eventbus::{EventBus, EventEnvelope};
 use ws_kit::hub::BroadcastHub;
 
 use crate::config::ArgusConfig;
-use feedkit::{Event, Observation, Quote};
+use crate::search::SearchIndex;
+use feedkit::{kind_slug, Event, Observation, Quote};
 
 /// Ring-buffer capacity for recent observations.
 const OBSERVATION_CAPACITY: usize = 512;
@@ -22,6 +23,10 @@ pub struct AppState {
     pub hub: Arc<BroadcastHub<EventEnvelope<Event>>>,
     /// Health registry backing `/readyz`.
     pub health: healthkit::HealthRegistry,
+    /// Entity ontology built from the live event stream.
+    pub ontology: RwLock<ontokit::EntityStore>,
+    /// Full-text index over observations.
+    pub search: SearchIndex,
     /// Candle history per symbol (klines refresh).
     candles: RwLock<BTreeMap<String, VecDeque<mdkit::Candle>>>,
     /// Last successful poll per source name, epoch ms.
@@ -32,17 +37,34 @@ pub struct AppState {
 
 impl AppState {
     /// Builds empty state for the given configuration.
-    #[must_use]
-    pub fn new(cfg: ArgusConfig) -> Self {
-        Self {
+    ///
+    /// # Errors
+    /// Returns the tantivy error when the search index cannot start.
+    pub fn new(cfg: ArgusConfig) -> tantivy::Result<Self> {
+        Ok(Self {
             cfg,
             bus: EventBus::new(),
             hub: Arc::new(BroadcastHub::new(1024)),
             health: healthkit::HealthRegistry::new(),
+            ontology: RwLock::new(ontokit::EntityStore::new()),
+            search: SearchIndex::new()?,
             candles: RwLock::new(BTreeMap::new()),
             last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),
             quotes: RwLock::new(BTreeMap::new()),
+        })
+    }
+
+    /// Feeds one observation into the ontology and the search index.
+    pub fn ingest_observation(&self, observation: &Observation) {
+        let stats = write_tolerant(&self.ontology).ingest_observation(observation);
+        if stats.created > 0 {
+            let _ = self.search.add(
+                &format!("event:{}:{}", observation.source, observation.id),
+                &observation.title,
+                kind_slug(observation.kind),
+                &observation.source,
+            );
         }
     }
 
@@ -112,7 +134,7 @@ impl AppState {
 
 /// `RwLock::write` returns `Result` under poison; recover and carry on — a
 /// panicked writer must not take the whole dashboard down.
-fn write_tolerant<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
+pub(crate) fn write_tolerant<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
     match lock.write() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
@@ -120,7 +142,7 @@ fn write_tolerant<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
 }
 
 /// `RwLock::read` with poison recovery.
-fn read_tolerant<T>(lock: &RwLock<T>) -> RwLockReadGuard<'_, T> {
+pub(crate) fn read_tolerant<T>(lock: &RwLock<T>) -> RwLockReadGuard<'_, T> {
     match lock.read() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
