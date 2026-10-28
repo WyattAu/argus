@@ -4,12 +4,12 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M5 back-office** — everything from M1–M4 plus the finance row:
-**double-entry books** seeded with a chart of accounts (report-kit trial
-balance, accounting-equation check), a **portfolio marked to market** against
-live quotes (USDT→USD peg restated through fx-kit's exact `Rate`), and an
-editor-gated manual posting endpoint. Panels: portfolio table, trial balance,
-manual posting form.
+**Status: M6 surfaces complete (M0–M6)** — one core, three clients:
+web (Astro+Solid+plychart-ready), terminal (`argus-tui`, ratatui +
+`tui-actions` keymap), and agents (`argus-mcp`, 9 tools over the MCP stdio
+transport). Back-office: double-entry books, report-kit trial balance,
+portfolio marked to live quotes, editor-gated postings. Auth: tokenkit JWT
+mint/verify with dev-header fallback. Alerts: alertkit rules → bus + Telegram.
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -26,6 +26,12 @@ cargo run -p argus-server
 
 # shell (binds localhost:4321, proxies /api incl. WS to the core)
 cd web && bun install && bun run dev
+
+# terminal surface (same stream, ratatui)
+cargo run -p argus-tui
+
+# agent surface — MCP stdio server, 9 tools over the core REST API
+cargo run -p argus-mcp -- --url http://127.0.0.1:8420
 ```
 
 Open http://localhost:4321 — markets chart (sim feed) + live USGS quake feed,
@@ -147,8 +153,10 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Roadmap
 
-M6 surfaces (Tauri desktop, ratatui TUI, MCP server) — then rename-and-publish
-pass for the collided crates (money, tantivy-ext, auditlog, eventbus).
+All six milestones shipped (M0–M6). Desktop wrapper: `tauri-preset` + the web
+shell is mechanical when wanted. Publish pass pending for collided names
+(money, tantivy-ext, auditlog, eventbus) and the young crates (graphkit,
+ontokit, alertkit, mdkit, feedkit, plychart).
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →

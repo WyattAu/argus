@@ -1,0 +1,27 @@
+[package]
+name = "argus-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Terminal surface for the argus intelligence platform"
+
+[dependencies]
+feedkit.workspace = true
+fetch-kit.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+tui-actions.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+tracing.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[lints]
+workspace = true

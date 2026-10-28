@@ -126,8 +126,7 @@ impl FromRequestParts<Arc<AppState>> for Reader {
             .unwrap_or("viewer");
         let Some(role) = role_from_str(role_str) else {
             return Err((StatusCode::FORBIDDEN, "unknown role").into_response());
-        };
-        // Read surface: every role at or above Viewer passes. accessctl's
+        };        // Read surface: every role at or above Viewer passes. accessctl's
         // Cedar-backed `authorize` is still private in 0.1.3 (dogfood note);
         // the hierarchy check is the published path.
         if role.has_at_least(&Role::Viewer) {
