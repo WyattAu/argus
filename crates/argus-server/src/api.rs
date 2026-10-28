@@ -41,6 +41,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/search", get(search))
         .route("/api/v1/provenance", get(provenance))
         .route("/api/v1/auth/token", post(mint_token))
+        .route("/api/v1/backoffice/portfolio", get(backoffice_portfolio))
+        .route("/api/v1/backoffice/trial-balance", get(backoffice_trial_balance))
+        .route("/api/v1/backoffice/post", post(backoffice_post))
         .with_state(state)
         .merge(health)
 }
@@ -72,7 +75,93 @@ pub struct CandlesQuery {
     pub limit: Option<usize>,
 }
 
-/// `GET /api/v1/candles` — OHLCV history for one symbol, oldest first.
+/// Query for the portfolio endpoint.
+#[derive(Debug, Deserialize)]
+pub struct PortfolioQuery {
+    /// Max positions returned (1..=200, default 50).
+    pub limit: Option<usize>,
+}
+
+/// `GET /api/v1/backoffice/portfolio` — holdings marked against live quotes.
+#[tracing::instrument(skip(state))]
+pub async fn backoffice_portfolio(
+    State(state): State<Arc<AppState>>,
+    reader: Reader,
+    Query(query): Query<PortfolioQuery>,
+) -> Result<Json<ApiResponse<crate::backoffice::PortfolioView>>, ServerError> {
+    tracing::debug!(user = %reader.user, "portfolio read");
+    if !reader.role.has_at_least(&accessctl::Role::Viewer) {
+        return Err(ServerError::Forbidden("insufficient role"));
+    }
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let quotes = state.quotes_snapshot();
+    let holdings: Vec<crate::backoffice::Holding> =
+        state.cfg.backoffice.holdings.iter().take(limit).cloned().collect();
+    Ok(Json(ApiResponse::success(crate::backoffice::portfolio(
+        &holdings,
+        &quotes,
+        feedkit::now_ms(),
+    ))))
+}
+
+/// `GET /api/v1/backoffice/trial-balance` — report-kit trial balance.
+#[tracing::instrument(skip(state))]
+pub async fn backoffice_trial_balance(
+    State(state): State<Arc<AppState>>,
+    reader: Reader,
+) -> Result<Json<ApiResponse<serde_json::Value>>, ServerError> {
+    tracing::debug!(user = %reader.user, "trial balance read");
+    if !reader.role.has_at_least(&accessctl::Role::Viewer) {
+        return Err(ServerError::Forbidden("insufficient role"));
+    }
+    let ledger = state.books.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let report = report_kit::TrialBalance::from_ledger(&ledger, "9999-12-31");
+    let rows: Vec<serde_json::Value> = report
+        .rows_for(state.cfg.backoffice.base_currency.as_str())
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "account": row.account_id,
+                "name": row.account_name,
+                "debit_minor": row.debit_total,
+                "credit_minor": row.credit_total,
+                "net_minor": row.net(),
+            })
+        })
+        .collect();
+    let value = serde_json::json!({
+        "base": state.cfg.backoffice.base_currency,
+        "balanced": report.is_balanced(),
+        "accounting_equation_holds": report
+            .accounting_equation_holds(state.cfg.backoffice.base_currency.as_str()),
+        "rows": rows,
+    });
+    Ok(Json(ApiResponse::success(value)))
+}
+
+/// `POST /api/v1/backoffice/post` — manual balanced posting (editor+).
+#[tracing::instrument(skip(state, request))]
+pub async fn backoffice_post(
+    State(state): State<Arc<AppState>>,
+    reader: Reader,
+    Json(request): Json<crate::backoffice::ManualPost>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, ServerError> {
+    if !reader.role.has_at_least(&accessctl::Role::Editor) {
+        return Err(ServerError::Forbidden("editor role required"));
+    }
+    let now = feedkit::now_ms();
+    let mut ledger = state
+        .books
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let version = crate::backoffice::post_manual(&mut ledger, &request, now)
+        .map_err(ServerError::Internal)?;
+    Ok(Json(ApiResponse::success(serde_json::json!({
+        "posted": true,
+        "ledger_version": version,
+        "by": reader.user,
+    }))))
+}
 #[tracing::instrument(skip(state))]
 pub async fn candles(
     State(state): State<Arc<AppState>>,
@@ -227,7 +316,7 @@ pub async fn mint_token(
     }
     // Validate the role through the same gate vocabulary as authz.
     if crate::authz::role_from_str(&request.role).is_none() {
-        return Err(ServerError::NotFound("unknown role"));
+        return Err(ServerError::Forbidden("unknown role"));
     }
     let token = crate::authz::issue_token(
         &state,

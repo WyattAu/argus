@@ -3,6 +3,7 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import Candles from "./Candles";
 import EntityPanel from "./EntityPanel";
+import FinanceOps from "./FinanceOps";
 import MapPanel from "./MapPanel";
 import Palette from "./Palette";
 import { KIND_COLOR, kindLabel, type Observation, type Quote } from "./kinds";
@@ -143,6 +144,8 @@ export default function Dashboard() {
       <MapPanel observations={filtered} />
 
       <EntityPanel />
+
+      <FinanceOps />
     </div>
   );
 }

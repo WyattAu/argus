@@ -13,6 +13,10 @@ pub enum ServerError {
     #[error("not found: {0}")]
     NotFound(&'static str),
 
+    /// Authenticated principal lacks the required role.
+    #[error("forbidden: {0}")]
+    Forbidden(&'static str),
+
     /// Anything unexpected.
     #[error("internal error: {0}")]
     Internal(String),
@@ -24,6 +28,7 @@ impl ServerError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::NotFound(_) => "not_found",
+            Self::Forbidden(_) => "forbidden",
             Self::Internal(_) => "internal",
         }
     }
@@ -33,6 +38,7 @@ impl http_error::HttpError for ServerError {
     fn status_code(&self) -> StatusCode {
         match self {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

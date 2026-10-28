@@ -33,6 +33,8 @@ pub struct AppState {
     pub alerts_engine: Mutex<alertkit::Engine>,
     /// Telegram sink when credentials are configured.
     pub telegram: Option<Arc<alertkit::TelegramSink>>,
+    /// Double-entry books (back-office).
+    pub books: Mutex<double_entry::Ledger>,
     /// Candle history per symbol (klines refresh).
     candles: RwLock<BTreeMap<String, VecDeque<mdkit::Candle>>>,
     /// Last successful poll per source name, epoch ms.
@@ -58,6 +60,7 @@ impl AppState {
             jwt: None,
             alerts_engine: Mutex::new(alertkit::Engine::new(alert_rules)),
             telegram: None,
+            books: Mutex::new(crate::backoffice::seed_ledger()),
             candles: RwLock::new(BTreeMap::new()),
             last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),

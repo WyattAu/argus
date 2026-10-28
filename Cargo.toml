@@ -41,6 +41,10 @@ breaker = "2.0.2"
 plycore = "0.2"
 accessctl = "0.1.3"
 tokenkit = "1.0"
+double-entry = "0.1"
+report-kit = "0.2"
+fx-kit = "0.1"
+vat-rules = "0.1"
 
 # External.
 axum = { version = "0.8", features = ["ws"] }

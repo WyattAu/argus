@@ -221,6 +221,24 @@ import Dashboard from "../components/Dashboard";
         cursor: pointer;
       }
       .neighbors button:hover { color: var(--accent); border-color: var(--accent); }
+      .opsgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .opsgrid h3 { margin: 0 0 0.4rem; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+      th, td { text-align: left; padding: 0.2rem 0.4rem; border-bottom: 1px solid var(--border); }
+      th { color: var(--muted); font-weight: 500; }
+      tfoot td { border-top: 1px solid var(--border); font-weight: 700; }
+      .pos { color: var(--accent); }
+      .neg { color: var(--danger); }
+      .postform { display: flex; gap: 0.35rem; margin-top: 0.6rem; flex-wrap: wrap; align-items: center; }
+      .postform input {
+        background: var(--bg); color: var(--text); border: 1px solid var(--border);
+        border-radius: 4px; padding: 0.25rem 0.5rem; font: inherit; font-size: 0.7rem; outline: none;
+      }
+      .postform input:focus { border-color: var(--accent); }
+      .postform button {
+        background: transparent; border: 1px solid var(--accent); color: var(--accent);
+        border-radius: 4px; font: inherit; font-size: 0.7rem; padding: 0.2rem 0.6rem; cursor: pointer;
+      }
     </style>
   </head>
   <body>

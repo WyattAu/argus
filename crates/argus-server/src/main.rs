@@ -3,6 +3,7 @@
 
 mod api;
 mod authz;
+mod backoffice;
 mod config;
 mod error;
 mod feeds;

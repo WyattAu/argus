@@ -68,5 +68,18 @@ symbol = "BTCUSDT"
 condition = { type = "price_above", value = 90000 }
 cooldown_secs = 3600
 
+[backoffice]
+base_currency = "USD"
+
+[[backoffice.holdings]]
+symbol = "BTCUSDT"
+qty_micros = 500000      # 0.5 BTC
+cost_minor = 30000000    # $30,000.00
+
+[[backoffice.holdings]]
+symbol = "ETHUSDT"
+qty_micros = 2000000     # 2.0 ETH
+cost_minor = 4500000     # $4,500.00
+
 [telemetry]
 level = "info"

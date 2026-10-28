@@ -25,6 +25,9 @@ pub struct ArgusConfig {
     /// Alert rules + sinks.
     #[serde(default)]
     pub alerts: AlertsConfig,
+    /// Back-office books + portfolio.
+    #[serde(default)]
+    pub backoffice: BackofficeConfig,
 }
 
 /// JWT auth settings.
@@ -41,6 +44,21 @@ pub struct AuthConfig {
 
 fn default_issuer() -> String {
     "argus".to_string()
+}
+
+/// Back-office books and portfolio positions.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct BackofficeConfig {
+    /// Base currency for the books (`USD`).
+    #[serde(default = "default_base_currency")]
+    pub base_currency: String,
+    /// Portfolio positions.
+    #[serde(default)]
+    pub holdings: Vec<crate::backoffice::Holding>,
+}
+
+fn default_base_currency() -> String {
+    "USD".to_string()
 }
 
 /// Alert rules and delivery sinks.

@@ -4,11 +4,12 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M4 authN + alerts** — everything from M1–M3 plus **alertkit**
-(config-driven rules: threshold on magnitude/price, per-rule+entity
-cooldowns, Telegram sink, alerts on the bus at `alerts.rule.<id>`) and
-tokenkit-backed JWT auth (`POST /api/v1/auth/token` mints Bearer tokens;
-without `auth.jwt_secret` the server runs in dev header mode).
+**Status: M5 back-office** — everything from M1–M4 plus the finance row:
+**double-entry books** seeded with a chart of accounts (report-kit trial
+balance, accounting-equation check), a **portfolio marked to market** against
+live quotes (USDT→USD peg restated through fx-kit's exact `Rate`), and an
+editor-gated manual posting endpoint. Panels: portfolio table, trial balance,
+manual posting form.
 
 ```
 feedkit (USGS + sim) ──▶ eventbus-kit bus ──▶ ws-kit BroadcastHub ──▶ ws://…/api/v1/stream
@@ -43,7 +44,12 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /api/v1/entities?kind=` | ontology entities, newest-seen first |
 | `GET /api/v1/entities/{id}/neighbors?hops=` | n-hop neighborhood, entity-joined |
 | `GET /api/v1/provenance` | chain head + verify + recent mutations |
+| `GET /api/v1/backoffice/portfolio` | holdings marked to live quotes (fx-kit peg) |
+| `GET /api/v1/backoffice/trial-balance` | report-kit trial balance + equation check |
+| `POST /api/v1/backoffice/post` | manual balanced posting — **editor+ only** |
 
+Back-office reads need `viewer`; `POST /api/v1/backoffice/post` needs
+`editor` (send `x-argus-role: editor` in dev mode, or mint an editor token).
 Ontology endpoints are gated. Two modes:
 
 - **Dev (default)** — `auth.jwt_secret` empty: `x-argus-role` headers trusted.
@@ -63,8 +69,10 @@ FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
 config-kit · telemetry-init · healthkit · eventbus-kit · ws-kit · api-types ·
 http-error · fetch-kit (+breaker) · breaker · plycore (CandleData in mdkit) ·
 accessctl (Role::has_at_least gate) · tokenkit (JwtService mint/verify) ·
-feedkit (8 event types incl. Alert) · feedkit adapters (7) · mdkit (Binance +
-Alpaca) · graphkit + ontokit · alertkit (new; rules, cooldowns, Telegram)
+double-entry + report-kit (books, trial balance) · fx-kit + vat-rules
+(TieMode peg restatement) · feedkit (8 event types incl. Alert) ·
+feedkit adapters (7) · mdkit (Binance + Alpaca) · graphkit + ontokit ·
+alertkit (rules, cooldowns, Telegram)
 
 Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
@@ -122,6 +130,13 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
     rejects your own tokens. `decode(&str)`, `encode(&claims)` generic.
 20. Binance combined-stream silence is self-inflicted 90% of the time:
     log the dialed URI before blaming the network.
+21. `money` on crates.io is a squatted stub — the real `Amount`/`Currency`
+    live in `double_entry::money` (and the ISO table is at
+    `money::currencies::by_alpha`, not `Currency::by_alpha`).
+22. fx-kit's `TieMode` re-exports nothing: you need `vat-rules` as a
+    direct dependency to name `TieMode::HalfUp`.
+23. report-kit reads `double_entry::Ledger` directly — keep your
+    double-entry version compatible with report-kit's pin.
 
 ## Estate gates
 
@@ -132,7 +147,8 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 
 ## Roadmap
 
-M5 PE/back-office (ledger-kit holdings, recon-kit cash, invoice/AP panels) →
+M6 surfaces (Tauri desktop, ratatui TUI, MCP server) — then rename-and-publish
+pass for the collided crates (money, tantivy-ext, auditlog, eventbus).
 M2 markets (mdkit: Binance/Alpaca, plychart candles, command palette) →
 M3 ontology (ontokit, tantivy-ext search, graphkit, accessctl ACLs, auditlog) →
 M4 quant/alerts (alertkit → Telegram, plycompute) →
