@@ -45,6 +45,8 @@ double-entry = "0.1"
 report-kit = "0.2"
 fx-kit = "0.1"
 vat-rules = "0.1"
+recon-kit = "0.1"
+statement-ofx = "0.1"
 
 # External.
 axum = { version = "0.8", features = ["ws"] }

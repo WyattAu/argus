@@ -9,7 +9,8 @@ web (Astro+Solid+plychart-ready), terminal (`argus-tui`, ratatui +
 `tui-actions` keymap), and agents (`argus-mcp`, 9 tools over the MCP stdio
 transport). Back-office: double-entry books with **durable journal** (JSON snapshot,
 atomic replace, reload-on-boot), report-kit trial balance, portfolio marked
-to live quotes, editor-gated postings. Auth: tokenkit JWT
+to live quotes, editor-gated postings, and **cash reconciliation** (upload
+OFX, recon-kit exact + window matching, unmatched-lines surfacing). Auth: tokenkit JWT
 mint/verify with dev-header fallback. Alerts: alertkit rules → bus + Telegram.
 
 ```
@@ -54,6 +55,7 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /api/v1/backoffice/portfolio` | holdings marked to live quotes (fx-kit peg) |
 | `GET /api/v1/backoffice/trial-balance` | report-kit trial balance + equation check |
 | `POST /api/v1/backoffice/post` | manual balanced posting — **editor+ only** |
+| `POST /api/v1/backoffice/reconcile` | raw OFX body → exact/window/unmatched recon report (read-only) |
 
 Back-office reads need `viewer`; `POST /api/v1/backoffice/post` needs
 `editor` (send `x-argus-role: editor` in dev mode, or mint an editor token).
@@ -144,6 +146,13 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
     direct dependency to name `TieMode::HalfUp`.
 23. report-kit reads `double_entry::Ledger` directly — keep your
     double-entry version compatible with report-kit's pin.
+24. recon-kit/statement-ofx: no `Display` on error enums (use `{:?}`),
+    SGML tags need explicit `</STMTTRN>` closers, values cannot chain
+    inline (`<BALAMT>x<DTASOF>y` parses `x<DTASOF>y` as the amount), and
+    `matching` is private — everything re-exports from the crate root.
+25. No errors on `#[derive(Default)]` paths that must anchor state: the
+    ontology genesis bug repeated here as `ProvenanceChain::default()`.
+    Fixed + regression-tested in both.
 
 ## Estate gates
 

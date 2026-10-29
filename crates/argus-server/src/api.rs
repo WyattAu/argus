@@ -44,6 +44,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/v1/backoffice/portfolio", get(backoffice_portfolio))
         .route("/api/v1/backoffice/trial-balance", get(backoffice_trial_balance))
         .route("/api/v1/backoffice/post", post(backoffice_post))
+        .route("/api/v1/backoffice/reconcile", post(backoffice_reconcile))
         .with_state(state)
         .merge(health)
 }
@@ -64,6 +65,31 @@ pub async fn quotes(State(state): State<Arc<AppState>>) -> Json<ApiResponse<serd
     let snapshot = state.quotes_snapshot();
     let value = serde_json::to_value(snapshot).unwrap_or(serde_json::Value::Null);
     Json(ApiResponse::success(value))
+}
+
+/// `POST /api/v1/backoffice/reconcile` — reconcile a bank statement
+/// (raw OFX body) against the cash account. Read-only: proposes, never books.
+#[tracing::instrument(skip(state, body))]
+pub async fn backoffice_reconcile(
+    State(state): State<Arc<AppState>>,
+    reader: Reader,
+    body: String,
+) -> Result<Json<ApiResponse<crate::backoffice::ReconView>>, ServerError> {
+    tracing::debug!(user = %reader.user, bytes = body.len(), "reconcile requested");
+    let statement = statement_ofx::parse_ofx(&body)
+        .map_err(|error| ServerError::BadRequest(format!("{error:?}")))?;
+    let ledger = state
+        .books
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let view = crate::backoffice::reconcile(
+        &ledger,
+        &statement,
+        "Assets:Cash:USD",
+        3,
+    )
+    .map_err(ServerError::BadRequest)?;
+    Ok(Json(ApiResponse::success(view)))
 }
 
 /// Query for the candles endpoint.

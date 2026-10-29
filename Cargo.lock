@@ -166,9 +166,11 @@ dependencies = [
  "http-error",
  "mdkit",
  "ontokit",
+ "recon-kit",
  "report-kit",
  "serde",
  "serde_json",
+ "statement-ofx",
  "tantivy",
  "telemetry-init",
  "thiserror 2.0.21",
@@ -3497,6 +3499,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "recon-kit"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab75cd6c500bb461105817027aea7846974881116bccaf46aaffd6cf020eecf9"
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4199,6 +4207,15 @@ dependencies = [
  "libc",
  "psm",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "statement-ofx"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca151b0a885fa86770003fb727fbf156d894c2b4b2a39a2f926a2c2bbf7721b8"
+dependencies = [
+ "recon-kit",
 ]
 
 [[package]]

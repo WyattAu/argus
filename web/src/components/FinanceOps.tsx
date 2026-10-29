@@ -3,6 +3,17 @@
 // conventions: all *_minor fields are base-currency 1e-2 units.
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 
+type ReconView = {
+  currency: string;
+  opening_balance: number;
+  closing_balance: number;
+  computed_closing: number;
+  valid: boolean;
+  exact: { line_id: string; entry_id: string }[];
+  proposals: ({ type: "match"; line_id: string; entry_id: string } | { type: "ambiguous"; line_id: string; candidates: string[] })[];
+  unmatched: { id: string; booked_on: string; amount_minor: number; description: string }[];
+};
+
 type Position = {
   symbol: string;
   qty: number;
@@ -32,6 +43,9 @@ export default function FinanceOps() {
   const [credit, setCredit] = createSignal("Income:Trading:USD");
   const [amount, setAmount] = createSignal("125.00");
   const [memo, setMemo] = createSignal("");
+  const [ofx, setOfx] = createSignal("");
+  const [recon, setRecon] = createSignal<ReconView | null>(null);
+  const [reconStatus, setReconStatus] = createSignal("");
 
   const role = () => localStorage.getItem("argus-role") ?? "viewer";
 
@@ -51,6 +65,27 @@ export default function FinanceOps() {
       if (json?.data) setTrial(json.data);
     } catch {
       /* transient */
+    }
+  };
+
+  const reconcile = async () => {
+    setReconStatus("reconciling...");
+    try {
+      const res = await fetch("/api/v1/backoffice/reconcile", {
+        method: "POST",
+        headers: { "content-type": "application/x-ofx" },
+        body: ofx(),
+      });
+      const json = await res.json();
+      if (json?.error) {
+        setReconStatus(json.error.message);
+        setRecon(null);
+      } else {
+        setRecon(json.data);
+        setReconStatus("");
+      }
+    } catch (error) {
+      setReconStatus(`failed: ${String(error)}`);
     }
   };
 
@@ -158,6 +193,41 @@ export default function FinanceOps() {
               </For>
             </tbody>
           </table>
+
+          <div class="reconbox">
+            <h3>reconcile bank statement (OFX)</h3>
+            <textarea
+              class="ofxbox"
+              value={ofx()}
+              onInput={(e) => setOfx(e.currentTarget.value)}
+              placeholder="paste OFX here — tags need explicit closers (</STMTTRN>)"
+            />
+            <button onClick={() => void reconcile()}>reconcile cash</button>
+            <Show when={reconStatus()}><span class="muted">{reconStatus()}</span></Show>
+            <Show when={recon()}>
+              {(view) => (
+                <div class="reconresults">
+                  <div class={view().valid ? "pos" : "neg"}>
+                    {view().valid ? "✓ balance identity holds" : "✗ balance mismatch"} · opening {fmt(view().opening_balance)} → closing {fmt(view().closing_balance)}
+                  </div>
+                  <div>{view().exact.length} exact · {view().proposals.length} proposals · {view().unmatched.length} unmatched</div>
+                  <For each={view().exact}>
+                    {(m) => <div class="pos">= {m.line_id} ↔ {m.entry_id}</div>}
+                  </For>
+                  <For each={view().proposals}>
+                    {(p) => (
+                      <div>
+                        {p.type === "match" ? `? ${p.line_id} ↔ ${p.entry_id}` : `? ${p.line_id} ambiguous: ${p.candidates.join(", ")}`}
+                      </div>
+                    )}
+                  </For>
+                  <For each={view().unmatched}>
+                    {(u) => <div class="neg">✗ {u.description} ({fmt(u.amount_minor)})</div>}
+                  </For>
+                </div>
+              )}
+            </Show>
+          </div>
 
           <div class="postform">
             <input value={debit()} onInput={(e) => setDebit(e.currentTarget.value)} placeholder="debit account" />

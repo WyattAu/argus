@@ -368,6 +368,185 @@ pub fn save_snapshot(
     Ok(())
 }
 
+/// Serializable reconciliation report.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReconView {
+    /// Statement currency.
+    pub currency: String,
+    /// Declared opening balance, minor units.
+    pub opening_balance: i64,
+    /// Declared closing balance, minor units.
+    pub closing_balance: i64,
+    /// Opening plus sum of signed lines.
+    pub computed_closing: i64,
+    /// Whether the balance identity held.
+    pub valid: bool,
+    /// Amount+date+direction exact matches.
+    pub exact: Vec<ReconMatch>,
+    /// Dated-window proposals (single or ambiguous).
+    pub proposals: Vec<ReconProposal>,
+    /// Lines nothing in the books explains.
+    pub unmatched: Vec<ReconLine>,
+}
+
+/// One confirmed exact match.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReconMatch {
+    /// Statement line id (`FITID`).
+    pub line_id: String,
+    /// Journal entry id.
+    pub entry_id: String,
+}
+
+/// One window proposal.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ReconProposal {
+    /// Single plausible entry.
+    Match {
+        /// Statement line id.
+        line_id: String,
+        /// Journal entry id.
+        entry_id: String,
+    },
+    /// Several entries are equally plausible; surfaced, not resolved.
+    Ambiguous {
+        /// Statement line id.
+        line_id: String,
+        /// Candidate entry ids, closest date first.
+        candidates: Vec<String>,
+    },
+}
+
+/// An unmatched statement line.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReconLine {
+    /// Statement line id.
+    pub id: String,
+    /// Booking date.
+    pub booked_on: String,
+    /// Signed amount, minor units.
+    pub amount_minor: i64,
+    /// Counterparty or narration.
+    pub description: String,
+}
+
+fn cash_sides(ledger: &Ledger, account: &str) -> Vec<recon_kit::LedgerSide> {
+    use recon_kit::{Direction, LedgerSide};
+    ledger
+        .posted_entries()
+        .iter()
+        .flat_map(|entry| {
+            entry.lines.iter().filter_map(move |line| {
+                if line.account.as_str() != account {
+                    return None;
+                }
+                let direction = match line.side {
+                    double_entry::Side::Debit => Direction::Credit,
+                    double_entry::Side::Credit => Direction::Debit,
+                };
+                Some(LedgerSide {
+                    entry_id: entry.id.clone(),
+                    booked_on: entry.date.clone(),
+                    amount: u64::try_from(line.amount.units.max(0)).unwrap_or(0),
+                    direction,
+                })
+            })
+        })
+        .collect()
+}
+
+/// Reconciles `statement` against the cash account's posted lines.
+///
+/// # Errors
+/// Returns the statement-validation message when the balance identity fails.
+pub fn reconcile(
+    ledger: &Ledger,
+    statement: &recon_kit::Statement,
+    account: &str,
+    window_days: i64,
+) -> Result<ReconView, String> {
+    statement.validate().map_err(|error| format!("{error:?}"))?;
+    let entries = cash_sides(ledger, account);
+    let taken_line_ids = std::collections::HashSet::new();
+    let taken_entry_ids = std::collections::HashSet::new();
+
+    let exact = recon_kit::match_exact(
+        &statement.lines,
+        &entries,
+        &taken_line_ids,
+        &taken_entry_ids,
+    );
+    let claimed_lines: std::collections::HashSet<String> =
+        exact.iter().map(|m| m.line_id.clone()).collect();
+    let claimed_entries: std::collections::HashSet<String> =
+        exact.iter().map(|m| m.entry_id.clone()).collect();
+    let proposals = recon_kit::match_window(
+        &statement.lines,
+        &entries,
+        window_days,
+        &claimed_lines,
+        &claimed_entries,
+    );
+
+    let mut claimed = claimed_lines;
+    // Both variants claim their line the same way; only the payload shape
+    // differs.
+    #[allow(clippy::match_same_arms)]
+    for proposal in &proposals {
+        let line_id = match proposal {
+            recon_kit::Proposal::Match(recon_kit::Match { line_id, .. }) => line_id,
+            recon_kit::Proposal::Ambiguous { line_id, .. } => line_id,
+        };
+        claimed.insert(line_id.clone());
+    }
+    let unmatched: Vec<ReconLine> = statement
+        .lines
+        .iter()
+        .filter(|line| !claimed.contains(&line.id))
+        .map(|line| ReconLine {
+            id: line.id.clone(),
+            booked_on: line.booked_on.clone(),
+            amount_minor: line.direction.signed(line.amount),
+            description: line.description.clone(),
+        })
+        .collect();
+
+    Ok(ReconView {
+        currency: statement.currency.clone(),
+        opening_balance: statement.opening_balance,
+        closing_balance: statement.closing_balance,
+        computed_closing: statement.computed_closing(),
+        valid: statement.validate().is_ok(),
+        exact: exact
+            .iter()
+            .map(|m| ReconMatch {
+                line_id: m.line_id.clone(),
+                entry_id: m.entry_id.clone(),
+            })
+            .collect(),
+        proposals: proposals
+            .iter()
+            .map(|proposal| match proposal {
+                recon_kit::Proposal::Match(recon_kit::Match {
+                    line_id,
+                    entry_id,
+                }) => ReconProposal::Match {
+                    line_id: line_id.clone(),
+                    entry_id: entry_id.clone(),
+                },
+                recon_kit::Proposal::Ambiguous { line_id, candidates } => {
+                    ReconProposal::Ambiguous {
+                        line_id: line_id.clone(),
+                        candidates: candidates.clone(),
+                    }
+                }
+            })
+            .collect(),
+        unmatched,
+    })
+}
+
 /// Loads the snapshot from disk, if present.
 ///
 /// # Errors

@@ -17,6 +17,10 @@ pub enum ServerError {
     #[error("forbidden: {0}")]
     Forbidden(&'static str),
 
+    /// Malformed client input.
+    #[error("bad request: {0}")]
+    BadRequest(String),
+
     /// Anything unexpected.
     #[error("internal error: {0}")]
     Internal(String),
@@ -29,6 +33,7 @@ impl ServerError {
         match self {
             Self::NotFound(_) => "not_found",
             Self::Forbidden(_) => "forbidden",
+            Self::BadRequest(_) => "bad_request",
             Self::Internal(_) => "internal",
         }
     }
@@ -39,6 +44,7 @@ impl http_error::HttpError for ServerError {
         match self {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
