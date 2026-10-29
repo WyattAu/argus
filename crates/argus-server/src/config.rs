@@ -55,6 +55,13 @@ pub struct BackofficeConfig {
     /// Portfolio positions.
     #[serde(default)]
     pub holdings: Vec<crate::backoffice::Holding>,
+    /// Directory for the books snapshot (`books.json`).
+    #[serde(default = "default_data_dir")]
+    pub data_dir: String,
+}
+
+fn default_data_dir() -> String {
+    "data".to_string()
 }
 
 fn default_base_currency() -> String {

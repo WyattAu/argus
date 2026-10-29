@@ -35,6 +35,8 @@ pub struct AppState {
     pub telegram: Option<Arc<alertkit::TelegramSink>>,
     /// Double-entry books (back-office).
     pub books: Mutex<double_entry::Ledger>,
+    /// Snapshot file for the books.
+    pub books_path: std::path::PathBuf,
     /// Candle history per symbol (klines refresh).
     candles: RwLock<BTreeMap<String, VecDeque<mdkit::Candle>>>,
     /// Last successful poll per source name, epoch ms.
@@ -50,6 +52,7 @@ impl AppState {
     /// Returns the tantivy error when the search index cannot start.
     pub fn new(cfg: ArgusConfig) -> tantivy::Result<Self> {
         let alert_rules = cfg.alerts.rules.clone();
+        let books_path = std::path::PathBuf::from(cfg.backoffice.data_dir.clone()).join("books.json");
         Ok(Self {
             cfg,
             bus: EventBus::new(),
@@ -61,6 +64,7 @@ impl AppState {
             alerts_engine: Mutex::new(alertkit::Engine::new(alert_rules)),
             telegram: None,
             books: Mutex::new(crate::backoffice::seed_ledger()),
+            books_path,
             candles: RwLock::new(BTreeMap::new()),
             last_ok_ms: RwLock::new(HashMap::new()),
             observations: RwLock::new(VecDeque::with_capacity(OBSERVATION_CAPACITY)),

@@ -67,6 +67,26 @@ fn run(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 async fn serve(cfg: config::ArgusConfig) -> Result<(), Box<dyn std::error::Error>> {
     let mut state = AppState::new(cfg)?;
 
+    // Books durability: reload the snapshot, else persist the seeded books.
+    let books_path = std::path::Path::new(&state.cfg.backoffice.data_dir).join("books.json");
+    state.books_path = books_path.clone();
+    if let Some(snapshot) = backoffice::load_snapshot(&books_path)? {
+        match backoffice::reload(&snapshot) {
+            Ok(ledger) => {
+                *state.books.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = ledger;
+                tracing::info!(path = %books_path.display(), "books reloaded from snapshot");
+            }
+            Err(error) => {
+                tracing::error!(%error, "books snapshot reload failed; starting from seed");
+            }
+        }
+    } else {
+        let guard = state.books.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        backoffice::save_snapshot(&guard, &books_path)?;
+        drop(guard);
+        tracing::info!(path = %books_path.display(), "seeded books snapshot written");
+    }
+
     // JWT service when a secret is configured; otherwise dev header mode.
     if state.cfg.auth.jwt_secret.trim().is_empty() {
         tracing::warn!(

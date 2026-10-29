@@ -5,3 +5,4 @@ Cargo.lock.bak
 node_modules/
 dist/
 .astro/
+/data/

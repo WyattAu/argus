@@ -156,6 +156,8 @@ pub async fn backoffice_post(
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let version = crate::backoffice::post_manual(&mut ledger, &request, now)
         .map_err(ServerError::Internal)?;
+    crate::backoffice::save_snapshot(&ledger, &state.books_path)
+        .map_err(|error| ServerError::Internal(error.to_string()))?;
     Ok(Json(ApiResponse::success(serde_json::json!({
         "posted": true,
         "ledger_version": version,

@@ -234,14 +234,148 @@ pub fn post_manual(ledger: &mut Ledger, request: &ManualPost, now_ms: i64) -> Re
         iso_date(now_ms),
         iso_month(now_ms),
         vec![
-            Line::debit(request.debit_account.clone(), Amount::minor(request.amount_minor, usd))
-                .with_memo(request.memo.clone()),
-            Line::credit(request.credit_account.clone(), Amount::minor(request.amount_minor, usd))
-                .with_memo(request.memo.clone()),
+            Line::debit(request.debit_account.clone(), Amount::minor(request.amount_minor, usd)),
+            Line::credit(request.credit_account.clone(), Amount::minor(request.amount_minor, usd)),
         ],
     )
     .with_memo(request.memo.clone());
     ledger.post(&entry, seq).map_err(|error| error.to_string())
 }
 
+/// The chart of accounts every snapshot reloads before re-posting.
+const CHART_OF_ACCOUNTS: [(&str, &str, AccountType); 5] = [
+    ("Assets:Cash:USD", "Cash (USD)", AccountType::Asset),
+    (
+        "Assets:Exchange:USD",
+        "Exchange balance (USD)",
+        AccountType::Asset,
+    ),
+    ("Equity:Capital:USD", "Capital introduced", AccountType::Equity),
+    ("Income:Trading:USD", "Trading P&L", AccountType::Revenue),
+    ("Expenses:Fees:USD", "Fees", AccountType::Expense),
+];
 
+/// Serialized journal entry for the snapshot file.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct SnapshotEntry {
+    id: String,
+    date: String,
+    period: String,
+    memo: Option<String>,
+    lines: Vec<SnapshotLine>,
+}
+
+/// One serialized line.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct SnapshotLine {
+    account: String,
+    side: String,
+    units: i64,
+    scale: u32,
+    currency: String,
+}
+
+/// Serializes all posted entries to a JSON snapshot string.
+///
+/// # Errors
+/// Returns the serde error on serialization failure.
+pub fn snapshot(ledger: &Ledger) -> Result<String, serde_json::Error> {
+    let entries: Vec<SnapshotEntry> = ledger
+        .posted_entries()
+        .iter()
+        .map(|entry| SnapshotEntry {
+            id: entry.id.clone(),
+            date: entry.date.clone(),
+            period: entry.period.clone(),
+            memo: entry.memo.clone(),
+            lines: entry
+                .lines
+                .iter()
+                .map(|line| SnapshotLine {
+                    account: line.account.as_str().to_string(),
+                    side: match line.side {
+                        double_entry::Side::Debit => "debit".to_string(),
+                        double_entry::Side::Credit => "credit".to_string(),
+                    },
+                    units: line.amount.units,
+                    scale: line.amount.scale,
+                    currency: line.amount.currency.alpha.to_string(),
+                })
+                .collect(),
+        })
+        .collect();
+    serde_json::to_string_pretty(&entries)
+}
+
+/// Rebuilds a ledger from a snapshot: chart of accounts, then re-posted
+/// entries in file order (the snapshot is append-only by construction).
+///
+/// # Errors
+/// Returns a message when the snapshot is malformed or an entry fails to
+/// re-post (imbalance, missing account).
+pub fn reload(snapshot: &str) -> Result<Ledger, String> {
+    let entries: Vec<SnapshotEntry> =
+        serde_json::from_str(snapshot).map_err(|error| error.to_string())?;
+    let mut ledger = Ledger::new();
+    for (id, name, kind) in CHART_OF_ACCOUNTS {
+        ledger.add_account(Account::new(id, name, kind));
+    }
+    for entry in &entries {
+        let lines: Vec<Line> = entry
+            .lines
+            .iter()
+            .map(|line| {
+                let amount = Amount {
+                    units: line.units,
+                    scale: line.scale,
+                    rounded_to: None,
+                    currency: currency(&line.currency),
+                };
+                match line.side.as_str() {
+                    "debit" => Line::debit(line.account.clone(), amount),
+                    _ => Line::credit(line.account.clone(), amount),
+                }
+            })
+            .collect();
+        let mut posted =
+            JournalEntry::draft(entry.id.clone(), entry.date.clone(), entry.period.clone(), lines);
+        if let Some(memo) = &entry.memo {
+            posted = posted.with_memo(memo.clone());
+        }
+        let version = ledger.version();
+        ledger
+            .post(&posted, version)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(ledger)
+}
+
+/// Writes the snapshot to disk (atomic tmp+rename replace).
+///
+/// # Errors
+/// Returns I/O or serde errors.
+pub fn save_snapshot(
+    ledger: &Ledger,
+    path: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let json = snapshot(ledger)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+/// Loads the snapshot from disk, if present.
+///
+/// # Errors
+/// Returns I/O errors when the file exists but cannot be read.
+pub fn load_snapshot(path: &std::path::Path) -> Result<Option<String>, std::io::Error> {
+    if path.exists() {
+        Ok(Some(std::fs::read_to_string(path)?))
+    } else {
+        Ok(None)
+    }
+}

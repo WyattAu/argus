@@ -4,11 +4,12 @@ All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
 private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M6 surfaces complete (M0–M6)** — one core, three clients:
+**Status: M6 + durable books** — one core, three clients:
 web (Astro+Solid+plychart-ready), terminal (`argus-tui`, ratatui +
 `tui-actions` keymap), and agents (`argus-mcp`, 9 tools over the MCP stdio
-transport). Back-office: double-entry books, report-kit trial balance,
-portfolio marked to live quotes, editor-gated postings. Auth: tokenkit JWT
+transport). Back-office: double-entry books with **durable journal** (JSON snapshot,
+atomic replace, reload-on-boot), report-kit trial balance, portfolio marked
+to live quotes, editor-gated postings. Auth: tokenkit JWT
 mint/verify with dev-header fallback. Alerts: alertkit rules → bus + Telegram.
 
 ```

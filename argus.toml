@@ -69,6 +69,7 @@ condition = { type = "price_above", value = 90000 }
 cooldown_secs = 3600
 
 [backoffice]
+data_dir = "data"
 base_currency = "USD"
 
 [[backoffice.holdings]]
