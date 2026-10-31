@@ -1,10 +1,10 @@
 # argus
 
-All-purpose intelligence platform — world surveillance (OSINT), markets/quant,
-private-equity back-office — in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
+All-purpose intelligence platform; world surveillance (OSINT), markets/quant,
+private-equity back-office; in Rust, dogfooding the [WyattAu](https://github.com/WyattAu)
 crate estate. See the research brief: `../intel-platform-research-2026-10-24.md`.
 
-**Status: M6 + durable books** — one core, three clients:
+**Status: M6 + durable books**; one core, three clients:
 web (Astro+Solid+plychart-ready), terminal (`argus-tui`, ratatui +
 `tui-actions` keymap), and agents (`argus-mcp`, 9 tools over the MCP stdio
 transport). Back-office: double-entry books with **durable journal** (JSON snapshot,
@@ -32,11 +32,11 @@ cd web && bun install && bun run dev
 # terminal surface (same stream, ratatui)
 cargo run -p argus-tui
 
-# agent surface — MCP stdio server, 9 tools over the core REST API
+# agent surface: MCP stdio server, 9 tools over the core REST API
 cargo run -p argus-mcp -- --url http://127.0.0.1:8420
 ```
 
-Open http://localhost:4321 — markets chart (sim feed) + live USGS quake feed,
+Open http://localhost:4321; markets chart (sim feed) + live USGS quake feed,
 LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 
 ## Endpoints
@@ -54,21 +54,21 @@ LIVE/STALE badge per panel. Config: `argus.toml` (+ `ARGUS_` env overrides).
 | `GET /api/v1/provenance` | chain head + verify + recent mutations |
 | `GET /api/v1/backoffice/portfolio` | holdings marked to live quotes (fx-kit peg) |
 | `GET /api/v1/backoffice/trial-balance` | report-kit trial balance + equation check |
-| `POST /api/v1/backoffice/post` | manual balanced posting — **editor+ only** |
+| `POST /api/v1/backoffice/post` | manual balanced posting; **editor+ only** |
 | `POST /api/v1/backoffice/reconcile` | raw OFX body → exact/window/unmatched recon report (read-only) |
 
 Back-office reads need `viewer`; `POST /api/v1/backoffice/post` needs
 `editor` (send `x-argus-role: editor` in dev mode, or mint an editor token).
 Ontology endpoints are gated. Two modes:
 
-- **Dev (default)** — `auth.jwt_secret` empty: `x-argus-role` headers trusted.
-- **JWT** — set `auth.jwt_secret` (or `ARGUS_AUTH_JWT_SECRET`): mint via
+- **Dev (default)**; `auth.jwt_secret` empty: `x-argus-role` headers trusted.
+- **JWT**; set `auth.jwt_secret` (or `ARGUS_AUTH_JWT_SECRET`): mint via
   `POST /api/v1/auth/token` with header `x-argus-mint-key: <secret>` and body
   `{user, role, ttl_secs}`; call APIs with `Authorization: Bearer <token>`.
   Missing/invalid tokens get 401, wrong roles 403.
 | `GET /api/v1/stream` | WebSocket: JSON `EventEnvelope<Event>` frames, CSWSH origin-checked |
 
-Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>` — wildcards `*`/`**`.
+Topics: `intel.<source>.<kind>`, `md.<source>.<symbol>`; wildcards `*`/`**`.
 
 FIRMS is off by default: set `firms_map_key` in `argus.toml` (or
 `ARGUS_FEEDS_FIRMS_MAP_KEY`) to a free NASA MAP_KEY, then `firms_enabled = true`.
@@ -88,68 +88,68 @@ Web side: astro + @astrojs/solid-js + solid-js + maplibre-gl (demotiles).
 ## Dogfood notes (M0 findings)
 
 1. **`eventbus` on crates.io is squatted** (SoniEx2) and holds the old sync bus; the
-   async bus with persistence/replay is published as **`eventbus-kit`** — but its lib
+   async bus with persistence/replay is published as **`eventbus-kit`**; but its lib
    name is `typed_eventbus` (`use typed_eventbus::{EventBus, EventEnvelope}`).
    Consider unifying: publish the async bus under the `-kit` name with lib name
    `eventbus_kit`.
 2. **`http-error` 0.2.0 has no derive macro** despite the repo description ("Derive
-   macro for mapping error enums") — `HttpError` must be hand-implemented. Either ship
+   macro for mapping error enums"); `HttpError` must be hand-implemented. Either ship
    the derive or fix the description.
-3. **`fetch-kit` `with_breaker` is behind the `circuit-breaker` feature** — easy to
+3. **`fetch-kit` `with_breaker` is behind the `circuit-breaker` feature**; easy to
    miss; default features don't include it.
-4. **`healthkit::axum::readiness_route` mounts itself at `/readyz`** — nest it at
+4. **`healthkit::axum::readiness_route` mounts itself at `/readyz`**; nest it at
    `/` (merge), not `/readyz`, or you 404. Methods return `Router`/`MethodRouter<()>`
    needing `.with_state(())` to merge into a stateful router.
-5. **Astro dev proxy lives at `vite.server.proxy`** — neither Astro's `server.proxy`
+5. **Astro dev proxy lives at `vite.server.proxy`**; neither Astro's `server.proxy`
    nor `vite.proxy` exists; both are silently ignored (`.mjs` configs aren't
    typechecked).
-6. **`plychart` has no npm/wasm artifact yet** — the shell chart is a canvas stub.
+6. **`plychart` has no npm/wasm artifact yet**; the shell chart is a canvas stub.
    M1+ needs `wasm-pack` output (or an npm package) to swap in for real.
 7. `eventbus-kit` `subscribe_sync` closures receive `Arc<EventEnvelope<T>>` while
-   `BroadcastHub::broadcast` takes owned `T` — clone at the bridge (fine, documented).
-8. `maplibre-gl`'s ESM build has **no default export** — import
+   `BroadcastHub::broadcast` takes owned `T`; clone at the bridge (fine, documented).
+8. `maplibre-gl`'s ESM build has **no default export**; import
    `{ Map, Marker, Popup, NavigationControl }` named, or rollup fails the build.
-9. NVD keyless tier is ~5 req/30 s — keep `nvd_interval_secs >= 60` (default 120).
+9. NVD keyless tier is ~5 req/30 s; keep `nvd_interval_secs >= 60` (default 120).
    FIRMS area API needs a MAP_KEY; adapter is `Option`-gated on it.
 10. EONET categories map: wildfires→`Fire`, severeStorms→`Weather`,
     volcanoes→`Volcano`, everything else→`News`.
-11. reqwest 0.13 renamed the `rustls-tls` feature to `rustls` — the old name
+11. reqwest 0.13 renamed the `rustls-tls` feature to `rustls`; the old name
     fails version selection.
 12. Binance combined streams use `<symbol>@<channel>`; `/` connects but
     delivers zero frames (silent). Always log the dialed URI.
 13. tokio-tungstenite `split()`: Pongs queued on Ping are only flushed when
-    you `send()` — handle `Message::Ping` explicitly or Binance drops you.
+    you `send()`; handle `Message::Ping` explicitly or Binance drops you.
 14. accessctl 0.1.3: `cedar::authorize` exists but the `cedar` module is
     **private** (README shows the call anyway). Published path =
     `Role::has_at_least` / `RoleHierarchy`. The JWT `RequireRole`
     extractor (tokenkit feature) is the M4 authN hook.
-15. `tantivy-ext` on crates.io is graysonrie's, not ours (collision) — M3
+15. `tantivy-ext` on crates.io is graysonrie's, not ours (collision); M3
     uses raw tantivy 0.27 behind `argus-server/src/search.rs`; rename
     tantivy-ext before it can back this.
-16. `auditlog` likewise collides (JijoBose) — ontokit ships a minimal
+16. `auditlog` likewise collides (JijoBose); ontokit ships a minimal
     SHA-256 chain (`ProvenanceChain`) as the stand-in.
-17. tantivy 0.27: `TopDocs` is no longer a `Collector` — call
+17. tantivy 0.27: `TopDocs` is no longer a `Collector`; call
     `.order_by_score()`; `IndexWriter::commit` takes `&mut self`; document
     values come back as `CompactDocValue` (convert via `OwnedValue::from`).
 18. Regression lesson: `#[derive(Default)]` on a type whose `new()`
     establishes an invariant (genesis hash) silently skips the invariant
-    — one store consumed `default()`. Test the default path too.
+   ; one store consumed `default()`. Test the default path too.
 19. tokenkit 1.0: `JwtConfig` has a full `Default` (HS256, exp+iss
-    required) — struct-update syntax; set `issuer: Some(...)` or decode
+    required); struct-update syntax; set `issuer: Some(...)` or decode
     rejects your own tokens. `decode(&str)`, `encode(&claims)` generic.
 20. Binance combined-stream silence is self-inflicted 90% of the time:
     log the dialed URI before blaming the network.
-21. `money` on crates.io is a squatted stub — the real `Amount`/`Currency`
+21. `money` on crates.io is a squatted stub; the real `Amount`/`Currency`
     live in `double_entry::money` (and the ISO table is at
     `money::currencies::by_alpha`, not `Currency::by_alpha`).
 22. fx-kit's `TieMode` re-exports nothing: you need `vat-rules` as a
     direct dependency to name `TieMode::HalfUp`.
-23. report-kit reads `double_entry::Ledger` directly — keep your
+23. report-kit reads `double_entry::Ledger` directly; keep your
     double-entry version compatible with report-kit's pin.
 24. recon-kit/statement-ofx: no `Display` on error enums (use `{:?}`),
     SGML tags need explicit `</STMTTRN>` closers, values cannot chain
     inline (`<BALAMT>x<DTASOF>y` parses `x<DTASOF>y` as the amount), and
-    `matching` is private — everything re-exports from the crate root.
+    `matching` is private; everything re-exports from the crate root.
 25. No errors on `#[derive(Default)]` paths that must anchor state: the
     ontology genesis bug repeated here as `ProvenanceChain::default()`.
     Fixed + regression-tested in both.
