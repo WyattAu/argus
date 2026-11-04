@@ -85,7 +85,6 @@ pub(crate) fn role_from_str(value: &str) -> Option<Role> {
 impl FromRequestParts<Arc<AppState>> for Reader {
     type Rejection = Response;
 
-    #[allow(clippy::unused_async_trait_impl)] // axum extractor trait is async
     async fn from_request_parts(
         parts: &mut Parts,
         state: &Arc<AppState>,
