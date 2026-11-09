@@ -67,12 +67,12 @@ petgraph = { version = "0.8", features = ["graphmap"] }
 sha2 = "0.10"
 tantivy = "0.27"
 
-# Internal.
-feedkit = { path = "crates/feedkit", version = "0.1.0" }
-mdkit = { path = "crates/mdkit", version = "0.1.0" }
-graphkit = { path = "crates/graphkit", version = "0.1.0" }
-ontokit = { path = "crates/ontokit", version = "0.1.0" }
-alertkit = { path = "crates/alertkit", version = "0.1.0" }
+# Internal — extracted to standalone crates.io crates (dogfooded).
+feedkit = "0.1.0"
+graphkit = "0.1.0"
+ontokit = "0.1.0"
+alertkit = "0.1.0"
+mdkit = { package = "marketdata-kit", version = "0.1.0" }
 
 [profile.release]
 lto = "thin"

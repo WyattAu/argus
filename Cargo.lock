@@ -26,6 +26,8 @@ dependencies = [
 [[package]]
 name = "alertkit"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88ff4e10535802793d5e3b9e3fba6cea67a8b4583c4241e09979f578703a2164"
 dependencies = [
  "breaker",
  "feedkit",
@@ -164,7 +166,7 @@ dependencies = [
  "healthkit",
  "http",
  "http-error",
- "mdkit",
+ "marketdata-kit",
  "ontokit",
  "recon-kit",
  "report-kit",
@@ -1389,6 +1391,8 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 [[package]]
 name = "feedkit"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e088525f5c3f21748b9252985d8fdad68190af6d742109d36a024d5db3de8b02"
 dependencies = [
  "breaker",
  "fetch-kit",
@@ -1669,6 +1673,8 @@ dependencies = [
 [[package]]
 name = "graphkit"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "833606aae864aad2dda1f74e3a2f87a29dd659633a954bfe0fc547f782104728"
 dependencies = [
  "petgraph 0.8.3",
  "serde",
@@ -2487,23 +2493,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "matchers"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
-dependencies = [
- "regex-automata",
-]
-
-[[package]]
-name = "matchit"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
-
-[[package]]
-name = "mdkit"
+name = "marketdata-kit"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97bc6cc0bf8ccc377bdc47949150bdfc92440fbd83714a94c6a410b8266fcff9"
 dependencies = [
  "breaker",
  "feedkit",
@@ -2518,6 +2511,21 @@ dependencies = [
  "tokio-tungstenite",
  "tracing",
 ]
+
+[[package]]
+name = "matchers"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1525a2a28c7f4fa0fc98bb91ae755d1e2d1505079e05539e35bc876b5d65ae9"
+dependencies = [
+ "regex-automata",
+]
+
+[[package]]
+name = "matchit"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "measure_time"
@@ -2784,6 +2792,8 @@ checksum = "269bca4c2591a28585d6bf10d9ed0332b7d76900a1b02bec41bdc3a2cdcda107"
 [[package]]
 name = "ontokit"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d47c7f9e1852ee816bfe6f940dce87df1ce10e71d2e02a7c793fe8dc31e82778"
 dependencies = [
  "feedkit",
  "graphkit",
