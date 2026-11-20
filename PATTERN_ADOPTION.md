@@ -16,5 +16,5 @@ pattern-standards). Rows are code-verified; checked by
 | P83 | adopted | crates/argus-server/src/api.rs:299 (provenance head, verify, and tail over the ontokit EntityStore mutation chain, held at crates/argus-server/src/state.rs:27) |
 | P114 | partial | crates/argus-server/src/authz.rs:102 (JWT mode: mandatory bearer token, typed claims decode, role gate; trusted dev headers only when no JWT secret is configured, crates/argus-server/src/authz.rs:114) |
 | P42 | refused | R6 (single-node server with per-handler tracing spans; no wide-event accumulator until request-correlation pain appears) |
-| P45 | refused | R6 (no SLO targets defined; alerting is alertkit rules to Telegram, crates/argus-server/src/feeds.rs:102) |
+| P45 | planned | R6 (no SLO targets defined; alerting is alertkit rules to Telegram, crates/argus-server/src/feeds.rs:102) |
 | P63 | refused | R6 (single in-process event bus; requests do not cross service hops to correlate) |
