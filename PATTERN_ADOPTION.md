@@ -18,3 +18,4 @@ pattern-standards). Rows are code-verified; checked by
 | P42 | refused | R6 (single-node server with per-handler tracing spans; no wide-event accumulator until request-correlation pain appears) |
 | P45 | planned | R6 (no SLO targets defined; alerting is alertkit rules to Telegram, crates/argus-server/src/feeds.rs:102) |
 | P63 | refused | R6 (single in-process event bus; requests do not cross service hops to correlate) |
+| P4 | n/a | canon baseline line names this repo; code shows no implementation of P4: no Sensitive wrapper or redaction, secrets are plain Strings (crates/argus-server/src/config.rs:39 jwt_secret, crates/argus-server/src/config.rs:190 alpaca_secret) |
